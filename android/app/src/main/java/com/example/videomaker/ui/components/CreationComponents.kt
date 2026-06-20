@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -109,9 +110,19 @@ fun PromptComposer(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconActionButton(
+                    icon = Icons.Rounded.Add,
+                    contentDescription = "添加图片或视频素材",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onAddMedia()
+                    },
+                    containerColor = colors.primaryContainer.copy(alpha = 0.76f),
+                    contentColor = colors.onPrimaryContainer
+                )
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
