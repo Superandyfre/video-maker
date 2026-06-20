@@ -1,37 +1,51 @@
 package com.example.videomaker.util
 
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 
-data class EnqueuedApkDownload(
-    val downloadId: Long,
-    val filePath: String
+data class ApkDownloadProgress(
+    val percent: Int?,
+    val bytesDownloaded: Long,
+    val totalBytes: Long,
+    val message: String
 )
 
-data class ApkDownloadSnapshot(
-    val isFinished: Boolean,
+data class ApkDownloadResult(
+    val filePath: String,
     val isSuccessful: Boolean,
-    val progressPercent: Int?,
     val message: String
 )
 
 object UpdateInstallUtils {
     private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
 
-    fun enqueueApkDownload(
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(600, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
+
+    suspend fun downloadApk(
         context: Context,
         apkUrl: String,
         versionName: String?,
-        apiToken: String
-    ): EnqueuedApkDownload {
+        apiToken: String,
+        onProgress: (ApkDownloadProgress) -> Unit
+    ): ApkDownloadResult = withContext(Dispatchers.IO) {
         val safeVersion = versionName
             ?.takeIf { it.isNotBlank() }
             ?.replace(Regex("[^A-Za-z0-9._-]"), "_")
@@ -43,92 +57,95 @@ object UpdateInstallUtils {
         val destination = File(downloadDir, fileName)
         if (destination.exists()) destination.delete()
 
-        val request = DownloadManager.Request(Uri.parse(apkUrl))
-            .setTitle("Video Maker $safeVersion")
-            .setDescription("正在下载更新安装包")
-            .setMimeType(APK_MIME_TYPE)
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-
+        val requestBuilder = Request.Builder().url(apkUrl)
         if (apiToken.isNotBlank()) {
-            request.addRequestHeader("Authorization", "Bearer $apiToken")
+            requestBuilder.header("Authorization", "Bearer $apiToken")
         }
 
-        val manager = downloadManager(context)
-        return EnqueuedApkDownload(
-            downloadId = manager.enqueue(request),
-            filePath = destination.absolutePath
-        )
-    }
-
-    fun queryApkDownload(context: Context, downloadId: Long, filePath: String): ApkDownloadSnapshot {
-        val manager = downloadManager(context)
-        manager.query(DownloadManager.Query().setFilterById(downloadId)).use { cursor ->
-            if (cursor == null || !cursor.moveToFirst()) {
-                return ApkDownloadSnapshot(
-                    isFinished = true,
+        try {
+            val response = client.newCall(requestBuilder.build()).execute()
+            if (!response.isSuccessful) {
+                response.close()
+                return@withContext ApkDownloadResult(
+                    filePath = destination.absolutePath,
                     isSuccessful = false,
-                    progressPercent = null,
-                    message = "找不到下载任务"
+                    message = "下载失败：HTTP ${response.code}"
                 )
             }
+            val body = response.body ?: run {
+                response.close()
+                return@withContext ApkDownloadResult(
+                    filePath = destination.absolutePath,
+                    isSuccessful = false,
+                    message = "下载失败：响应为空"
+                )
+            }
+            val totalBytes = body.contentLength().takeIf { it > 0 } ?: -1L
 
-            val status = cursor.intColumn(DownloadManager.COLUMN_STATUS)
-            val downloaded = cursor.longColumn(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-            val total = cursor.longColumn(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-            val progress = if (total > 0L) ((downloaded * 100L) / total).toInt().coerceIn(0, 100) else null
-
-            return when (status) {
-                DownloadManager.STATUS_SUCCESSFUL -> {
-                    val file = File(filePath)
-                    ApkDownloadSnapshot(
-                        isFinished = true,
-                        isSuccessful = file.exists() && file.length() > 0L,
-                        progressPercent = 100,
-                        message = if (file.exists() && file.length() > 0L) {
-                            "安装包已下载"
-                        } else {
-                            "安装包下载完成但文件不可用"
+            body.byteStream().use { input ->
+                destination.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesRead: Int
+                    var totalRead = 0L
+                    var lastReportedPercent = -1
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        bytesRead = input.read(buffer)
+                        if (bytesRead == -1) break
+                        output.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        if (totalBytes > 0) {
+                            val percent = ((totalRead * 100L) / totalBytes).toInt().coerceIn(0, 100)
+                            if (percent != lastReportedPercent) {
+                                lastReportedPercent = percent
+                                onProgress(
+                                    ApkDownloadProgress(
+                                        percent = percent,
+                                        bytesDownloaded = totalRead,
+                                        totalBytes = totalBytes,
+                                        message = "正在下载 $percent%"
+                                    )
+                                )
+                            }
+                        } else if (totalRead % (512 * 1024) < buffer.size) {
+                            onProgress(
+                                ApkDownloadProgress(
+                                    percent = null,
+                                    bytesDownloaded = totalRead,
+                                    totalBytes = totalBytes,
+                                    message = "正在下载 ${formatBytes(totalRead)}"
+                                )
+                            )
                         }
-                    )
+                    }
                 }
+            }
 
-                DownloadManager.STATUS_FAILED -> {
-                    val reason = cursor.intColumn(DownloadManager.COLUMN_REASON)
-                    ApkDownloadSnapshot(
-                        isFinished = true,
-                        isSuccessful = false,
-                        progressPercent = progress,
-                        message = "下载失败：${failureReason(reason)}"
-                    )
-                }
-
-                DownloadManager.STATUS_PAUSED -> {
-                    val reason = cursor.intColumn(DownloadManager.COLUMN_REASON)
-                    ApkDownloadSnapshot(
-                        isFinished = false,
-                        isSuccessful = false,
-                        progressPercent = progress,
-                        message = "下载暂停：${pauseReason(reason)}"
-                    )
-                }
-
-                DownloadManager.STATUS_PENDING -> ApkDownloadSnapshot(
-                    isFinished = false,
+            response.close()
+            val finalSize = destination.length()
+            if (finalSize <= 0L) {
+                return@withContext ApkDownloadResult(
+                    filePath = destination.absolutePath,
                     isSuccessful = false,
-                    progressPercent = progress,
-                    message = "等待下载..."
-                )
-
-                else -> ApkDownloadSnapshot(
-                    isFinished = false,
-                    isSuccessful = false,
-                    progressPercent = progress,
-                    message = if (progress != null) "正在下载 $progress%" else "正在下载..."
+                    message = "下载完成但文件为空"
                 )
             }
+
+            ApkDownloadResult(
+                filePath = destination.absolutePath,
+                isSuccessful = true,
+                message = "安装包已下载"
+            )
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            runCatching { if (destination.exists()) destination.delete() }
+            throw cancellation
+        } catch (e: Exception) {
+            runCatching { if (destination.exists()) destination.delete() }
+            ApkDownloadResult(
+                filePath = destination.absolutePath,
+                isSuccessful = false,
+                message = "下载失败：${e.message ?: e.javaClass.simpleName}"
+            )
         }
     }
 
@@ -163,36 +180,15 @@ object UpdateInstallUtils {
         context.startActivity(intent)
     }
 
-    private fun downloadManager(context: Context): DownloadManager {
-        return context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-    }
-
-    private fun Cursor.intColumn(name: String): Int = getInt(getColumnIndexOrThrow(name))
-
-    private fun Cursor.longColumn(name: String): Long = getLong(getColumnIndexOrThrow(name))
-
-    private fun failureReason(reason: Int): String {
-        return when (reason) {
-            DownloadManager.ERROR_CANNOT_RESUME -> "无法继续下载"
-            DownloadManager.ERROR_DEVICE_NOT_FOUND -> "找不到存储设备"
-            DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "文件已存在"
-            DownloadManager.ERROR_FILE_ERROR -> "文件写入失败"
-            DownloadManager.ERROR_HTTP_DATA_ERROR -> "网络数据异常"
-            DownloadManager.ERROR_INSUFFICIENT_SPACE -> "存储空间不足"
-            DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "重定向次数过多"
-            DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "服务器返回异常状态"
-            DownloadManager.ERROR_UNKNOWN -> "未知错误"
-            else -> "错误码 $reason"
+    private fun formatBytes(bytes: Long): String {
+        if (bytes < 1024) return "${bytes} B"
+        val units = listOf("KB", "MB", "GB")
+        var value = bytes.toDouble() / 1024.0
+        var idx = 0
+        while (value >= 1024.0 && idx < units.size - 1) {
+            value /= 1024.0
+            idx++
         }
-    }
-
-    private fun pauseReason(reason: Int): String {
-        return when (reason) {
-            DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "等待 Wi-Fi"
-            DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "等待网络"
-            DownloadManager.PAUSED_WAITING_TO_RETRY -> "等待重试"
-            DownloadManager.PAUSED_UNKNOWN -> "未知原因"
-            else -> "状态码 $reason"
-        }
+        return String.format("%.1f %s", value, units[idx])
     }
 }

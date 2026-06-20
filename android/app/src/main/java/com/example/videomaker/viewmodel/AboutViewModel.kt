@@ -78,77 +78,57 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
 
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
-            runCatching {
-                val context = getApplication<Application>().applicationContext
-                val enqueued = UpdateInstallUtils.enqueueApkDownload(
-                    context = context,
-                    apkUrl = apkUrl,
-                    versionName = latest.versionName,
-                    apiToken = state.apiToken
+            val context = getApplication<Application>().applicationContext
+            _uiState.update {
+                it.copy(
+                    isDownloading = true,
+                    downloadProgress = null,
+                    downloadedApkPath = null,
+                    installPermissionRequired = false,
+                    message = "开始下载安装包...",
+                    error = null
                 )
+            }
+
+            val result = UpdateInstallUtils.downloadApk(
+                context = context,
+                apkUrl = apkUrl,
+                versionName = latest.versionName,
+                apiToken = state.apiToken
+            ) { progress ->
                 _uiState.update {
                     it.copy(
                         isDownloading = true,
-                        downloadProgress = null,
-                        downloadedApkPath = null,
-                        installPermissionRequired = false,
-                        message = "开始下载安装包...",
+                        downloadProgress = progress.percent,
+                        message = progress.message,
                         error = null
                     )
                 }
+            }
 
-                while (isActive) {
-                    val snapshot = UpdateInstallUtils.queryApkDownload(
-                        context = context,
-                        downloadId = enqueued.downloadId,
-                        filePath = enqueued.filePath
-                    )
-                    if (snapshot.isFinished) {
-                        if (snapshot.isSuccessful) {
-                            val canInstall = UpdateInstallUtils.canRequestPackageInstalls(context)
-                            _uiState.update {
-                                it.copy(
-                                    isDownloading = false,
-                                    downloadProgress = 100,
-                                    downloadedApkPath = enqueued.filePath,
-                                    installPermissionRequired = !canInstall,
-                                    installEventId = if (canInstall) System.currentTimeMillis() else it.installEventId,
-                                    message = if (canInstall) {
-                                        "安装包已下载，正在打开安装确认。"
-                                    } else {
-                                        "安装包已下载，请先授权安装未知应用。"
-                                    },
-                                    error = null
-                                )
-                            }
-                        } else {
-                            _uiState.update {
-                                it.copy(
-                                    isDownloading = false,
-                                    downloadProgress = snapshot.progressPercent,
-                                    error = snapshot.message,
-                                    message = null
-                                )
-                            }
-                        }
-                        break
-                    }
-
-                    _uiState.update {
-                        it.copy(
-                            isDownloading = true,
-                            downloadProgress = snapshot.progressPercent,
-                            message = snapshot.message,
-                            error = null
-                        )
-                    }
-                    delay(800)
-                }
-            }.onFailure { error ->
+            if (result.isSuccessful) {
+                val canInstall = UpdateInstallUtils.canRequestPackageInstalls(context)
                 _uiState.update {
                     it.copy(
                         isDownloading = false,
-                        error = ApiClient.toUserMessage(error),
+                        downloadProgress = 100,
+                        downloadedApkPath = result.filePath,
+                        installPermissionRequired = !canInstall,
+                        installEventId = if (canInstall) System.currentTimeMillis() else it.installEventId,
+                        message = if (canInstall) {
+                            "安装包已下载，正在打开安装确认。"
+                        } else {
+                            "安装包已下载，请先授权安装未知应用。"
+                        },
+                        error = null
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isDownloading = false,
+                        downloadProgress = null,
+                        error = result.message,
                         message = null
                     )
                 }
