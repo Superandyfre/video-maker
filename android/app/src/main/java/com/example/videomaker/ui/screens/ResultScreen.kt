@@ -122,8 +122,7 @@ fun ResultScreen(
         ) {
             BackTopBar(
                 onBack = onBackHome,
-                title = "生成响应",
-                subtitle = "视频已完成，可以预览、下载或分享。"
+                title = "生成响应"
             )
             if (videoUrl.isNullOrBlank()) {
                 ErrorCard("没有可播放的视频地址")

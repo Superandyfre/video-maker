@@ -94,8 +94,7 @@ fun AboutScreen(
             }
 
             SectionHeader(
-                title = "关于与更新",
-                subtitle = "检查当前后端发布的 Android 最新安装包。"
+                title = "关于与更新"
             )
 
             CurrentVersionCard(state = state)

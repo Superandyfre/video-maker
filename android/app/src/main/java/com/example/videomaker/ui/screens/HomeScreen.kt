@@ -126,11 +126,6 @@ fun HomeScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Text(
-                text = "输入商品场景和卖点，添加素材后直接生成竖版营销视频。",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             SummaryChips(
                 state = createState,
                 onOpenTools = { showTools = true }
@@ -178,23 +173,15 @@ private fun HomeTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(
-                text = "Video Maker",
-                style = MaterialTheme.typography.titleLarge,
-                color = colors.onBackground
-            )
-            StatusPill(
-                text = connectionLabel,
-                modifier = Modifier.padding(top = 8.dp),
-                containerColor = if (connectionLabel == "已连接") {
-                    colors.tertiaryContainer.copy(alpha = 0.84f)
-                } else {
-                    colors.primaryContainer.copy(alpha = 0.72f)
-                },
-                contentColor = if (connectionLabel == "已连接") colors.onTertiaryContainer else colors.onPrimaryContainer
-            )
-        }
+        StatusPill(
+            text = connectionLabel,
+            containerColor = if (connectionLabel == "已连接") {
+                colors.tertiaryContainer.copy(alpha = 0.84f)
+            } else {
+                colors.primaryContainer.copy(alpha = 0.72f)
+            },
+            contentColor = if (connectionLabel == "已连接") colors.onTertiaryContainer else colors.onPrimaryContainer
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             IconActionButton(
                 icon = Icons.Rounded.History,

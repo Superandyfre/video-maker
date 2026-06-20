@@ -1,19 +1,33 @@
 package com.example.videomaker.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoMode
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.videomaker.ui.components.AppScreenScaffold
@@ -46,8 +60,7 @@ fun SettingsScreen(
         ) {
             BackTopBar(
                 onBack = onBack,
-                title = "设置",
-                subtitle = "配置后端服务地址、访问令牌和应用外观。"
+                title = "设置"
             )
             SoftSurfaceCard {
                 StatusPill(text = "连接配置")
@@ -76,12 +89,6 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
                 )
-                Text(
-                    text = "切换会立即生效并保存。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -89,19 +96,22 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     ThemeOptionButton(
-                        label = "跟随系统",
+                        icon = Icons.Rounded.AutoMode,
+                        contentDescription = "跟随系统",
                         selected = state.themeMode == "system",
                         onClick = { viewModel.updateThemeMode("system") },
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOptionButton(
-                        label = "明亮",
+                        icon = Icons.Rounded.LightMode,
+                        contentDescription = "明亮",
                         selected = state.themeMode == "light",
                         onClick = { viewModel.updateThemeMode("light") },
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOptionButton(
-                        label = "暗黑",
+                        icon = Icons.Rounded.DarkMode,
+                        contentDescription = "暗黑",
                         selected = state.themeMode == "dark",
                         onClick = { viewModel.updateThemeMode("dark") },
                         modifier = Modifier.weight(1f)
@@ -115,12 +125,6 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
-                )
-                Text(
-                    text = "查看当前版本，并从当前后端检查最新 Android 安装包。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
                 )
                 SoftSecondaryButton(
                     text = "打开",
@@ -176,14 +180,29 @@ fun SettingsScreen(
 
 @Composable
 private fun ThemeOptionButton(
-    label: String,
+    icon: ImageVector,
+    contentDescription: String,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (selected) {
-        SoftPrimaryButton(text = label, onClick = onClick, modifier = modifier)
-    } else {
-        SoftSecondaryButton(text = label, onClick = onClick, modifier = modifier)
+    val colors = MaterialTheme.colorScheme
+    val containerColor = if (selected) colors.primary else colors.surface.copy(alpha = 0.72f)
+    val contentColor = if (selected) colors.onPrimary else colors.onSurface
+    Box(
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(containerColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }

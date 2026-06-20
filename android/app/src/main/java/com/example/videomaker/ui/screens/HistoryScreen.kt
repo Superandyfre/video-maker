@@ -55,7 +55,6 @@ fun HistoryScreen(
             BackTopBar(
                 onBack = onBack,
                 title = "历史记录",
-                subtitle = "继续查看已生成的视频。",
                 actions = {
                     IconActionButton(
                         icon = Icons.Rounded.Refresh,

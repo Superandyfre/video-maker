@@ -39,7 +39,10 @@ STATE_DB_PATH = Path(_STATE_DB_PATH) if _STATE_DB_PATH else STATE_DIR / "video_m
 TEMPLATE_DIR = BASE_DIR / "app" / "templates"
 ASSET_DIR = BASE_DIR / "assets"
 FONT_DIR = ASSET_DIR / "fonts"
-BGM_DIR = ASSET_DIR / "bgm"
+_BGM_DIR = _get_str("BGM_DIR")
+BGM_DIR = Path(_BGM_DIR).expanduser() if _BGM_DIR else ASSET_DIR / "bgm"
+_BGM_USAGE_HISTORY_PATH = _get_str("BGM_USAGE_HISTORY_PATH")
+BGM_USAGE_HISTORY_PATH = Path(_BGM_USAGE_HISTORY_PATH).expanduser() if _BGM_USAGE_HISTORY_PATH else STATE_DIR / "bgm_usage_history.json"
 
 FFMPEG_BIN = _get_str("FFMPEG_BIN")
 FFPROBE_BIN = _get_str("FFPROBE_BIN")

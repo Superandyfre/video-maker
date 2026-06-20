@@ -24,10 +24,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -110,25 +109,9 @@ fun PromptComposer(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconActionButton(
-                    icon = Icons.Rounded.Add,
-                    contentDescription = "添加素材",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAddMedia()
-                    },
-                    containerColor = colors.primaryContainer.copy(alpha = 0.76f),
-                    contentColor = colors.onPrimaryContainer
-                )
-                ToolChip(
-                    label = "工具",
-                    value = if (selectedMedia.isEmpty()) "添加素材" else "${selectedMedia.size}/30 素材",
-                    onClick = onOpenTools
-                )
-                Spacer(modifier = Modifier.weight(1f))
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -136,7 +119,7 @@ fun PromptComposer(
                     },
                     enabled = canGenerate && !isBusy,
                     shape = RoundedCornerShape(999.dp),
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colors.primary,
                         contentColor = colors.onPrimary,
@@ -145,12 +128,10 @@ fun PromptComposer(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Send,
+                        imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isBusy) "生成中" else "生成")
                 }
             }
         }

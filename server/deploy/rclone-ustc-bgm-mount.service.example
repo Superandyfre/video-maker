@@ -1,0 +1,28 @@
+[Unit]
+Description=Mount Video Maker BGM library from USTC Cloud Drive via rclone
+After=network-online.target
+Wants=network-online.target
+Before=video-maker.service video-maker-worker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+EnvironmentFile=/home/ubuntu/personal/video-maker-server/deploy/rclone-ustc-bgm.env
+ExecStartPre=/usr/bin/mkdir -p /home/ubuntu/.mounts/video-maker-bgm /home/ubuntu/.cache/rclone/video-maker-bgm
+ExecStart=/usr/bin/rclone mount ustc-bgm:Saves/video-maker-bgm /home/ubuntu/.mounts/video-maker-bgm \
+  --config /home/ubuntu/.config/rclone/rclone.conf \
+  --read-only \
+  --dir-cache-time 12h \
+  --vfs-cache-mode full \
+  --vfs-cache-max-size 64M \
+  --vfs-cache-max-age 24h \
+  --buffer-size 16M \
+  --attr-timeout 1m \
+  --poll-interval 0
+ExecStop=/bin/fusermount -uz /home/ubuntu/.mounts/video-maker-bgm
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

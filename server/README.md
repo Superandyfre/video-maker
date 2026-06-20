@@ -65,6 +65,8 @@ HTTPS_PROXY=http://127.0.0.1:7890
 HTTP_PROXY=http://127.0.0.1:7890
 API_TOKEN=change-this-token
 PUBLIC_BASE_URL=https://video-maker.andyscodexagent.cyou
+BGM_DIR=/absolute/path/to/bgm
+BGM_USAGE_HISTORY_PATH=/absolute/path/to/bgm_usage_history.json
 DEEPSEEK_API_KEY=
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
@@ -81,6 +83,8 @@ TEMP_RETENTION_HOURS=24
 - `API_TOKEN`：为空时是本地开发模式，不强制鉴权；非空时受保护接口必须带 `Authorization: Bearer <token>`。
 - `PUBLIC_BASE_URL`：预留给公网 URL 拼接；当前 API 仍返回相对路径。
 - `DEEPSEEK_API_KEY`：智能生成可选使用 DeepSeek；不要写入源码或 Android 客户端。
+- `BGM_DIR`：可选覆盖默认的 `assets/bgm/`，适合把 BGM 挂到单独磁盘或 WebDAV/rclone 挂载目录。
+- `BGM_USAGE_HISTORY_PATH`：可选覆盖 BGM 使用历史文件位置；当 `BGM_DIR` 指向只读挂载时，建议保留到本地 `state/` 目录。
 - `LLM_PROVIDER`：`deepseek` 时优先调用 DeepSeek，失败或未配置 key 会自动规则 fallback；`none` 时完全使用规则生成。
 - retention 变量用于清理过期文件。
 
@@ -179,7 +183,7 @@ curl -L -o result.mp4 http://127.0.0.1:8000/outputs/替换为job_id.mp4
 
 ## BGM 文件
 
-把背景音乐放在 `assets/bgm/`。支持 `mp3`、`wav`、`m4a`、`aac`、`ogg`、`flac`。
+把背景音乐放在 `assets/bgm/`，或通过环境变量 `BGM_DIR` 指向其他目录。支持 `mp3`、`wav`、`m4a`、`aac`、`ogg`、`flac`。
 
 生成一个测试 BGM：
 

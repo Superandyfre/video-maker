@@ -9,13 +9,13 @@ from typing import Any
 
 import yaml
 
-from app.config import BGM_ALLOW_ATTRIBUTION_REQUIRED, BGM_DIR
+from app.config import BGM_ALLOW_ATTRIBUTION_REQUIRED, BGM_DIR, BGM_USAGE_HISTORY_PATH
 from app.ffmpeg_utils import run_ffprobe_duration
 from app.schemas import BgmCandidate, BgmConfig, BgmProfile
 
 logger = logging.getLogger(__name__)
 MANIFEST_PATH = BGM_DIR / "manifest.yaml"
-USAGE_HISTORY_PATH = BGM_DIR / "usage_history.json"
+USAGE_HISTORY_PATH = BGM_USAGE_HISTORY_PATH
 SUPPORTED_BGM_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
 VALID_MOODS = {"warm_lifestyle", "light_commercial", "tech_clean", "energetic_promo", "calm_clean"}
 DEFAULT_VOLUME = 0.08

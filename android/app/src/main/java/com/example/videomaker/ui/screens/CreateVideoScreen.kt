@@ -65,8 +65,7 @@ fun CreateVideoScreen(
         ) {
             BackTopBar(
                 onBack = onBack,
-                title = "新建视频",
-                subtitle = "上传素材并填写需求，一键生成竖版营销视频。"
+                title = "新建视频"
             )
             state.error?.let { ErrorCard(it) }
             SoftSurfaceCard {

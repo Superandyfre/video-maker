@@ -115,8 +115,7 @@ fun HistoryDetailScreen(
         ) {
             BackTopBar(
                 onBack = onBack,
-                title = "历史视频",
-                subtitle = "可在此播放、下载或分享视频。"
+                title = "历史视频"
             )
             when {
                 record == null && state.isLoading -> InfoCard("正在加载历史视频...")

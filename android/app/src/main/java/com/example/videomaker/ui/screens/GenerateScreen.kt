@@ -50,8 +50,7 @@ fun GenerateScreen(
         ) {
             BackTopBar(
                 onBack = onBack,
-                title = if (state.status == "failed") "生成遇到问题" else "正在生成视频",
-                subtitle = "任务会在后台继续轮询，完成后自动进入结果页。"
+                title = if (state.status == "failed") "生成遇到问题" else "正在生成视频"
             )
             GenerationLiveStatus(
                 status = state.status,
