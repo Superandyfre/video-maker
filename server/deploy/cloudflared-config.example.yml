@@ -1,0 +1,8 @@
+tunnel: 1380265e-7655-4bb8-9b57-0a3a263c43ac
+credentials-file: /home/ubuntu/.cloudflared/1380265e-7655-4bb8-9b57-0a3a263c43ac.json
+
+ingress:
+  - hostname: video-maker.andyscodexagent.cyou
+    service: http://127.0.0.1:8000
+  - service: http_status:404
+

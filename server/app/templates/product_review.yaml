@@ -1,0 +1,30 @@
+name: product_review
+display_name: 产品测评型
+description: 适合开箱体验、真实测评、优缺点介绍
+ratio: "9:16"
+canvas:
+  width: 1080
+  height: 1920
+  fps: 30
+title:
+  enabled: true
+  y: 110
+  font_size: 68
+  max_chars_per_line: 12
+subtitle:
+  enabled: true
+  y: 1580
+  font_size: 80
+  outline: 3
+  shadow: 1
+  font: Source Han Sans SC
+image_motion:
+  type: slow_zoom
+  zoom_start: 1.0
+  zoom_end: 1.06
+transition:
+  type: fade
+  duration: 0.2
+bgm:
+  default_volume: 0.12
+

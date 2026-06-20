@@ -1,0 +1,54 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+server/.venv/
+server/venv/
+server/.pytest_cache/
+server/.ruff_cache/
+server/.mypy_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Runtime data (kept dir structure via .gitkeep, contents gitignored)
+server/uploads/*
+server/outputs/*
+server/temp/*
+server/state/*
+server/downloads/*
+!server/uploads/.gitkeep
+!server/outputs/.gitkeep
+!server/temp/.gitkeep
+!server/state/.gitkeep
+!server/downloads/.gitkeep
+!server/downloads/android/.gitkeep
+
+# Large asset directories (source separately; see README)
+server/assets/bgm/*
+server/assets/fonts/*
+!server/assets/bgm/.gitkeep
+!server/assets/fonts/.gitkeep
+
+# Secrets — NEVER commit
+server/deploy/env.production
+server/deploy/env.production.bak*
+*.pem
+*.key
+
+# Logs
+*.log
+android/app-debug.apk
+*.apk
+!server/downloads/android/.gitkeep

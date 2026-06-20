@@ -1,0 +1,15 @@
+video-maker.andyscodexagent.cyou {
+    encode zstd gzip
+
+    # Caddy will obtain and renew HTTPS certificates automatically.
+    # Adjust this limit if MAX_UPLOAD_SIZE_MB changes.
+    request_body {
+        max_size 200MB
+    }
+
+    reverse_proxy 127.0.0.1:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

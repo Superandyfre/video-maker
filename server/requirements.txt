@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic>=2,<3
+PyYAML
+edge-tts
+aiofiles
+pytest
+httpx

@@ -1,0 +1,15 @@
+[Unit]
+Description=Video Maker Worker
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/personal/video-maker-server
+EnvironmentFile=/home/ubuntu/personal/video-maker-server/deploy/env.production
+ExecStart=/home/ubuntu/personal/video-maker-server/.venv/bin/python -m app.worker
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

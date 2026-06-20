@@ -1,0 +1,30 @@
+name: promo_sale
+display_name: 促销活动型
+description: 适合限时优惠、活动预告、直播间引流
+ratio: "9:16"
+canvas:
+  width: 1080
+  height: 1920
+  fps: 30
+title:
+  enabled: true
+  y: 100
+  font_size: 76
+  max_chars_per_line: 10
+subtitle:
+  enabled: true
+  y: 1580
+  font_size: 83
+  outline: 4
+  shadow: 1
+  font: Source Han Sans SC
+image_motion:
+  type: slow_zoom
+  zoom_start: 1.0
+  zoom_end: 1.08
+transition:
+  type: fade
+  duration: 0.25
+bgm:
+  default_volume: 0.15
+
