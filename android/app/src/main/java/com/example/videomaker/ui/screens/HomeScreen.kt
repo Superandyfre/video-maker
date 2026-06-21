@@ -3,6 +3,7 @@ package com.example.videomaker.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -116,7 +117,14 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             HomeTopBar(
-                connectionLabel = connectionLabel(settingsState.baseUrl, settingsState.health != null),
+                connectionLabel = connectionPillLabel(
+                    baseUrl = settingsState.baseUrl,
+                    connected = settingsState.health != null,
+                    isTesting = settingsState.isTesting
+                ),
+                connected = settingsState.health != null,
+                canTestConnection = settingsState.baseUrl.isNotBlank() && !settingsState.isTesting,
+                onTestConnection = settingsViewModel::testConnection,
                 onHistory = onHistory,
                 onSettings = onSettings
             )
@@ -149,12 +157,6 @@ fun HomeScreen(
                     createVideoViewModel.buildGenerationInput()?.let(onGenerate)
                 }
             )
-            SoftSecondaryButton(
-                text = if (settingsState.isTesting) "测试连接中..." else "测试连接",
-                onClick = settingsViewModel::testConnection,
-                enabled = settingsState.baseUrl.isNotBlank() && !settingsState.isTesting,
-                modifier = Modifier.fillMaxWidth()
-            )
             settingsState.message?.let { InfoCard(it) }
             settingsState.error?.let { ErrorCard(it) }
         }
@@ -164,6 +166,9 @@ fun HomeScreen(
 @Composable
 private fun HomeTopBar(
     connectionLabel: String,
+    connected: Boolean,
+    canTestConnection: Boolean,
+    onTestConnection: () -> Unit,
     onHistory: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -175,12 +180,16 @@ private fun HomeTopBar(
     ) {
         StatusPill(
             text = connectionLabel,
-            containerColor = if (connectionLabel == "已连接") {
+            modifier = Modifier.clickable(
+                enabled = canTestConnection,
+                onClick = onTestConnection
+            ),
+            containerColor = if (connected) {
                 colors.tertiaryContainer.copy(alpha = 0.84f)
             } else {
                 colors.primaryContainer.copy(alpha = 0.72f)
             },
-            contentColor = if (connectionLabel == "已连接") colors.onTertiaryContainer else colors.onPrimaryContainer
+            contentColor = if (connected) colors.onTertiaryContainer else colors.onPrimaryContainer
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             IconActionButton(
@@ -357,10 +366,11 @@ private fun voiceLabel(state: CreateVideoUiState): String {
         ?: state.selectedVoice
 }
 
-private fun connectionLabel(baseUrl: String, connected: Boolean): String {
+private fun connectionPillLabel(baseUrl: String, connected: Boolean, isTesting: Boolean): String {
     return when {
-        connected -> "已连接"
+        isTesting -> "测试中..."
+        connected -> "已连接 · 复测"
         baseUrl.isBlank() -> "未配置"
-        else -> "待测试"
+        else -> "待测试 · 测试"
     }
 }
