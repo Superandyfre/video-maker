@@ -30,6 +30,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
+            repository.migrateLegacyTokenIfNeeded()
             repository.settingsFlow.collectLatest { settings ->
                 _uiState.update {
                     it.copy(baseUrl = settings.baseUrl, apiToken = settings.apiToken, themeMode = settings.themeMode)
@@ -90,4 +91,3 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 }
-

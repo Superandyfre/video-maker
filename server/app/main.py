@@ -36,6 +36,7 @@ from app.renderer import render_video
 from app.schemas import (
     BgmConfig,
     BgmProfile,
+    CapabilitiesResponse,
     CreateJobRequest,
     CreateJobResponse,
     AppUpdateResponse,
@@ -377,6 +378,11 @@ async def get_templates() -> dict[str, list[TemplateInfo]]:
 @app.get("/api/voices")
 async def get_voices() -> list[VoiceInfo]:
     return VOICES
+
+
+@app.get("/api/capabilities", response_model=CapabilitiesResponse)
+async def get_capabilities(_auth: None = Depends(require_api_token)) -> CapabilitiesResponse:
+    return CapabilitiesResponse()
 
 
 @app.post("/api/admin/cleanup")

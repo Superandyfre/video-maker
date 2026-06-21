@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,16 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.media3.common.MediaItem
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerView
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.BackTopBar
 import com.example.videomaker.ui.components.ErrorCard
@@ -46,6 +37,7 @@ import com.example.videomaker.ui.components.InfoCard
 import com.example.videomaker.ui.components.SoftPrimaryButton
 import com.example.videomaker.ui.components.SoftSecondaryButton
 import com.example.videomaker.ui.components.SoftSurfaceCard
+import com.example.videomaker.ui.components.TokenVideoPlayer
 import com.example.videomaker.util.DownloadUtils
 import com.example.videomaker.viewmodel.HistoryViewModel
 import com.example.videomaker.viewmodel.SettingsViewModel
@@ -130,7 +122,7 @@ fun HistoryDetailScreen(
                     SoftSurfaceCard(
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
                     ) {
-                        HistoryVideoPlayer(url = record.videoFullUrl, apiToken = settingsState.apiToken)
+                        TokenVideoPlayer(url = record.videoFullUrl, apiToken = settingsState.apiToken)
                     }
                     SoftPrimaryButton(
                         text = if (isDownloading) "正在下载..." else "下载视频",
@@ -170,42 +162,6 @@ fun HistoryDetailScreen(
             error?.let { ErrorCard(it) }
         }
     }
-}
-
-@Composable
-private fun HistoryVideoPlayer(url: String, apiToken: String) {
-    val context = LocalContext.current
-    val player = remember(url, apiToken) {
-        val headers = if (apiToken.isNotBlank()) {
-            mapOf("Authorization" to "Bearer $apiToken")
-        } else {
-            emptyMap()
-        }
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(headers)
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .build()
-            .apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-            playWhenReady = false
-        }
-    }
-
-    DisposableEffect(player) {
-        onDispose {
-            player.release()
-        }
-    }
-
-    AndroidView(
-        factory = { PlayerView(it).apply { this.player = player } },
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(9f / 16f)
-            .clip(RoundedCornerShape(24.dp))
-    )
 }
 
 private fun formatTimestamp(value: String): String {

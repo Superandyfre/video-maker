@@ -109,6 +109,27 @@ data class VoiceInfo(
     val gender: String
 )
 
+data class CapabilitiesResponse(
+    @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Int = 200,
+    @SerializedName("max_upload_size_bytes") val maxUploadSizeBytes: Long = 200L * 1024L * 1024L,
+    @SerializedName("max_video_upload_duration_seconds") val maxVideoUploadDurationSeconds: Int = 300,
+    @SerializedName("max_job_assets") val maxJobAssets: Int = 12,
+    @SerializedName("max_script_items") val maxScriptItems: Int = 12,
+    @SerializedName("max_script_item_chars") val maxScriptItemChars: Int = 180,
+    @SerializedName("supported_image_mime_types") val supportedImageMimeTypes: List<String> = listOf(
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    ),
+    @SerializedName("supported_video_mime_types") val supportedVideoMimeTypes: List<String> = listOf(
+        "video/mp4",
+        "video/quicktime",
+        "video/x-m4v"
+    ),
+    @SerializedName("supported_resolutions") val supportedResolutions: List<String> = listOf("720x1280", "1080x1920"),
+    @SerializedName("default_resolution") val defaultResolution: String = "1080x1920"
+)
+
 data class AppUpdateResponse(
     val versionCode: Int,
     val versionName: String?,

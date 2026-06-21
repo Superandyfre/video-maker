@@ -38,10 +38,25 @@ cd android
 # 产物在 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Release 构建读取 `android/keystore.properties`，该文件不要提交：
+
+```properties
+storeFile=release/video-maker-release.jks
+storePassword=...
+keyAlias=video-maker
+keyPassword=...
+```
+
+```bash
+cd android
+./gradlew assembleRelease
+# 产物在 app/build/outputs/apk/release/app-release.apk
+```
+
 ## 更新检测
 
 后端在 `downloads/android/latest.json` 提供 manifest，App 内"关于"页会检查。新版本流程：
 1. 改 `android/app/build.gradle.kts` 的 `versionCode` / `versionName`
-2. `./gradlew assembleDebug`
+2. `./gradlew assembleRelease`
 3. 把 APK 复制到 `server/downloads/android/video-maker-android-<version>.apk`
 4. 更新 `latest.json`（versionCode / versionName / apkUrl / sha256 / releaseNotes）

@@ -41,7 +41,16 @@ class JobStatusPollWorker(
                 JobPollingScheduler.schedule(applicationContext, status.jobId)
             }
             Result.success()
-        }.getOrElse {
+        }.getOrElse { error ->
+            val existing = activeJobRepository.activeJobFlow.first()
+            if (existing != null) {
+                activeJobRepository.save(
+                    existing.copy(
+                        message = "后台同步失败",
+                        error = ApiClient.toUserMessage(error)
+                    )
+                )
+            }
             Result.retry()
         }
     }

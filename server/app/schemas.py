@@ -13,6 +13,9 @@ from app.config import (
     MAX_JOB_ASSETS,
     MAX_SCRIPT_ITEM_CHARS,
     MAX_SCRIPT_ITEMS,
+    MAX_UPLOAD_SIZE_BYTES,
+    MAX_UPLOAD_SIZE_MB,
+    MAX_VIDEO_UPLOAD_DURATION_SECONDS,
     SUPPORTED_RESOLUTIONS,
 )
 
@@ -430,6 +433,19 @@ class VoiceInfo(BaseModel):
     name: str
     locale: str
     gender: str
+
+
+class CapabilitiesResponse(BaseModel):
+    max_upload_size_mb: int = MAX_UPLOAD_SIZE_MB
+    max_upload_size_bytes: int = MAX_UPLOAD_SIZE_BYTES
+    max_video_upload_duration_seconds: int = MAX_VIDEO_UPLOAD_DURATION_SECONDS
+    max_job_assets: int = MAX_JOB_ASSETS
+    max_script_items: int = MAX_SCRIPT_ITEMS
+    max_script_item_chars: int = MAX_SCRIPT_ITEM_CHARS
+    supported_image_mime_types: list[str] = ["image/jpeg", "image/png", "image/webp"]
+    supported_video_mime_types: list[str] = ["video/mp4", "video/quicktime", "video/x-m4v"]
+    supported_resolutions: list[str] = list(SUPPORTED_RESOLUTIONS.keys())
+    default_resolution: str = DEFAULT_RESOLUTION
 
 
 class AppUpdateResponse(BaseModel):

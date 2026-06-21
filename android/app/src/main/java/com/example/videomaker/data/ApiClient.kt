@@ -1,5 +1,6 @@
 package com.example.videomaker.data
 
+import com.example.videomaker.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.HttpException
@@ -9,10 +10,26 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
+    private data class CacheKey(val baseUrl: String, val apiToken: String)
+
+    private var cachedKey: CacheKey? = null
+    private var cachedService: ApiService? = null
+
     fun create(baseUrl: String, apiToken: String): ApiService {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+        val key = CacheKey(normalizedBaseUrl, apiToken.trim())
+        synchronized(this) {
+            val service = cachedService
+            if (service != null && cachedKey == key) {
+                return service
+            }
+        }
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
         val client = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -20,20 +37,25 @@ object ApiClient {
             .writeTimeout(600, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val requestBuilder = chain.request().newBuilder()
-                if (apiToken.isNotBlank()) {
-                    requestBuilder.header("Authorization", "Bearer $apiToken")
+                if (key.apiToken.isNotBlank()) {
+                    requestBuilder.header("Authorization", "Bearer ${key.apiToken}")
                 }
                 chain.proceed(requestBuilder.build())
             }
             .addInterceptor(logging)
             .build()
 
-        return Retrofit.Builder()
+        val service = Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)
+        synchronized(this) {
+            cachedKey = key
+            cachedService = service
+        }
+        return service
     }
 
     fun normalizeBaseUrl(baseUrl: String): String {
@@ -64,4 +86,3 @@ object ApiClient {
         }
     }
 }
-

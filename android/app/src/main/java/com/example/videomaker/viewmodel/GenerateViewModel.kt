@@ -61,6 +61,14 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    override fun onCleared() {
+        val state = _uiState.value
+        if (state.isRunning && !state.jobId.isNullOrBlank()) {
+            JobPollingScheduler.schedule(appContext, state.jobId, delaySeconds = 10)
+        }
+        super.onCleared()
+    }
+
     fun start(input: GenerationInput) {
         lastInput = input
         activeJob?.cancel()
@@ -106,8 +114,6 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                     it.copy(jobId = job.jobId, status = job.status, phase = "queued", progress = 30, message = "任务已创建")
                 }
                 persistState(queuedState)
-                JobPollingScheduler.schedule(appContext, job.jobId, delaySeconds = 5)
-
                 observeExistingJob(job.jobId, immediate = false)
             }.onFailure { error ->
                 val failedState = _uiState.updateAndGet {
@@ -164,7 +170,6 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         )
         _uiState.value = initialState
         if (persisted.videoFullUrl.isNullOrBlank()) {
-            JobPollingScheduler.schedule(appContext, persisted.jobId)
             activeJob?.cancel()
             activeJob = viewModelScope.launch {
                 runCatching {
@@ -258,8 +263,6 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         persistState(nextState)
         if (status.status == "done" || status.status == "failed") {
             JobPollingScheduler.cancel(appContext, status.jobId)
-        } else {
-            JobPollingScheduler.schedule(appContext, status.jobId)
         }
         return status.status == "done" || status.status == "failed"
     }

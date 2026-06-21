@@ -1,1 +1,1 @@
-
+-keep class com.example.videomaker.data.** { *; }

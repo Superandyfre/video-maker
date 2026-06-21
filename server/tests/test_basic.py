@@ -57,6 +57,26 @@ def test_voices() -> None:
     assert "zh-CN-YunjianNeural" in ids
 
 
+def test_capabilities() -> None:
+    response = client.get("/api/capabilities")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["max_job_assets"] >= 1
+    assert data["max_upload_size_bytes"] == data["max_upload_size_mb"] * 1024 * 1024
+    assert "image/jpeg" in data["supported_image_mime_types"]
+    assert "video/mp4" in data["supported_video_mime_types"]
+    assert "1080x1920" in data["supported_resolutions"]
+
+
+def test_capabilities_requires_token_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_TOKEN", "test-token")
+
+    assert client.get("/api/capabilities").status_code == 401
+    response = client.get("/api/capabilities", headers={"Authorization": "Bearer test-token"})
+
+    assert response.status_code == 200
+
+
 def test_android_latest_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     manifest = tmp_path / "latest.json"
     manifest.write_text(

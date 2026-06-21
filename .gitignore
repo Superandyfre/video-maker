@@ -12,6 +12,9 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+android/keystore.properties
+android/release/*.jks
+android/release/*.keystore
 server/.venv/
 server/.venv
 server/venv/
@@ -47,6 +50,8 @@ server/deploy/env.production
 server/deploy/env.production.bak*
 *.pem
 *.key
+*.jks
+*.keystore
 
 # Logs
 *.log

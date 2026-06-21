@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.videomaker.data.ApiClient
+import com.example.videomaker.data.CapabilitiesResponse
 import com.example.videomaker.data.SettingsRepository
 import com.example.videomaker.data.TemplateInfo
 import com.example.videomaker.data.VoiceInfo
@@ -30,6 +31,7 @@ data class CreateVideoUiState(
     val bgmEnabled: Boolean = false,
     val bgmFilename: String = "test_bgm.wav",
     val selectedMedia: List<SelectedMedia> = emptyList(),
+    val capabilities: CapabilitiesResponse = CapabilitiesResponse(),
     val isLoadingOptions: Boolean = false,
     val error: String? = null
 )
@@ -47,14 +49,17 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
             runCatching {
                 val settings = repository.settingsFlow.first()
                 val api = ApiClient.create(settings.baseUrl, settings.apiToken)
-                api.templates().templates to api.voices()
-            }.onSuccess { (templates, voices) ->
+                Triple(api.templates().templates, api.voices(), api.capabilities())
+            }.onSuccess { (templates, voices, capabilities) ->
                 _uiState.update { state ->
                     state.copy(
                         templates = templates,
                         voices = voices,
+                        capabilities = capabilities,
                         selectedTemplate = templates.firstOrNull()?.name ?: state.selectedTemplate,
                         selectedVoice = voices.firstOrNull()?.id ?: state.selectedVoice,
+                        resolution = capabilities.supportedResolutions.firstOrNull { it == state.resolution }
+                            ?: capabilities.defaultResolution,
                         isLoadingOptions = false,
                         error = null
                     )
@@ -121,8 +126,41 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
     fun addMedia(uris: List<Uri>) {
         if (uris.isEmpty()) return
         val current = _uiState.value.selectedMedia
-        val newItems = uris.take(30 - current.size).map { FileUtils.describe(appContext, it) }
-        _uiState.update { it.copy(selectedMedia = current + newItems, error = null) }
+        val capabilities = _uiState.value.capabilities
+        val maxItems = capabilities.maxJobAssets.coerceAtLeast(1)
+        if (current.size >= maxItems) {
+            _uiState.update { it.copy(error = "最多只能选择 $maxItems 个素材。") }
+            return
+        }
+        val accepted = mutableListOf<SelectedMedia>()
+        var rejectedMessage: String? = null
+        for (uri in uris) {
+            if (current.size + accepted.size >= maxItems) {
+                rejectedMessage = "最多只能选择 $maxItems 个素材，已忽略多余文件。"
+                break
+            }
+            val media = runCatching { FileUtils.describe(appContext, uri) }.getOrElse {
+                rejectedMessage = "无法读取部分素材，已忽略。"
+                null
+            } ?: continue
+            val isSupportedType = media.mimeType in capabilities.supportedImageMimeTypes ||
+                media.mimeType in capabilities.supportedVideoMimeTypes
+            if (!isSupportedType) {
+                rejectedMessage = "不支持的素材类型：${media.mimeType}"
+                continue
+            }
+            if (media.sizeBytes != null && media.sizeBytes > capabilities.maxUploadSizeBytes) {
+                rejectedMessage = "素材超过 ${capabilities.maxUploadSizeMb}MB，已忽略。"
+                continue
+            }
+            accepted += media
+        }
+        _uiState.update {
+            it.copy(
+                selectedMedia = current + accepted,
+                error = rejectedMessage
+            )
+        }
     }
 
     fun removeMedia(index: Int) {
@@ -134,7 +172,7 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
     fun buildGenerationInput(): GenerationInput? {
         val state = _uiState.value
         val prompt = state.prompt.trim()
-        return if (prompt.length < 5 || state.selectedMedia.isEmpty()) {
+        return if (prompt.length < 5 || state.selectedMedia.isEmpty() || state.selectedMedia.size > state.capabilities.maxJobAssets) {
             null
         } else {
             GenerationInput(

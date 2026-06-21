@@ -71,7 +71,7 @@ fun CreateVideoScreen(
             SoftSurfaceCard {
                 StatusPill(text = "素材")
                 Text(
-                    text = "支持图片和视频，最多可选择 30 个素材。",
+                    text = "支持图片和视频，最多可选择 ${state.capabilities.maxJobAssets} 个素材。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 10.dp, bottom = 14.dp)

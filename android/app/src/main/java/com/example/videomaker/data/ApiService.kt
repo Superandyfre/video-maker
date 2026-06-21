@@ -19,6 +19,9 @@ interface ApiService {
     @GET("api/voices")
     suspend fun voices(): List<VoiceInfo>
 
+    @GET("api/capabilities")
+    suspend fun capabilities(): CapabilitiesResponse
+
     @Multipart
     @POST("api/upload")
     suspend fun upload(@Part file: MultipartBody.Part): UploadResponse
