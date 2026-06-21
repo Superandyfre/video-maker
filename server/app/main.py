@@ -4,15 +4,16 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.auth import require_api_token, require_configured_api_token
 from app.cleanup import run_cleanup
 from app.config import (
+    CORS_ALLOW_ORIGINS,
     DOWNLOAD_DIR,
     OUTPUT_DIR,
     OUTPUT_RETENTION_HOURS,
@@ -50,6 +51,7 @@ from app.schemas import (
 from app.smart_script import generate_smart_script
 from app.storage import (
     FileTooLargeError,
+    InvalidFileContentError,
     InvalidFileExtensionError,
     ensure_directories,
     get_upload_path_by_file_id,
@@ -78,15 +80,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR), check_dir=False), name="uploads")
-app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR), check_dir=False), name="outputs")
-app.mount("/downloads", StaticFiles(directory=str(DOWNLOAD_DIR), check_dir=False), name="downloads")
 
 
 VOICES = [
@@ -96,11 +94,25 @@ VOICES = [
 ]
 
 
-async def _run_render_task(job_id: str, request: CreateJobRequest) -> None:
+def _resolve_served_file(root: Path, requested_path: str) -> Path:
+    if "\\" in requested_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    relative_path = Path(requested_path)
+    if relative_path.is_absolute() or any(part in {"", ".", ".."} for part in relative_path.parts):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    root_path = root.resolve()
+    candidate = (root_path / relative_path).resolve()
     try:
-        await render_video(job_id, request)
-    except Exception:
-        logger.exception("Background render task failed for job %s", job_id)
+        candidate.relative_to(root_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found") from exc
+    if not candidate.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    return candidate
+
+
+def _protected_file_response(root: Path, requested_path: str) -> FileResponse:
+    return FileResponse(_resolve_served_file(root, requested_path))
 
 
 def _validate_render_inputs(template: str, assets: list[str]) -> None:
@@ -220,8 +232,23 @@ async def health() -> dict[str, object]:
 
 
 @app.get("/app/android/latest.json", response_model=AppUpdateResponse)
-async def latest_android_version() -> AppUpdateResponse:
+async def latest_android_version(_auth: None = Depends(require_api_token)) -> AppUpdateResponse:
     return load_android_update_manifest()
+
+
+@app.get("/uploads/{file_path:path}")
+async def serve_upload(file_path: str, _auth: None = Depends(require_api_token)) -> FileResponse:
+    return _protected_file_response(UPLOAD_DIR, file_path)
+
+
+@app.get("/outputs/{file_path:path}")
+async def serve_output(file_path: str, _auth: None = Depends(require_api_token)) -> FileResponse:
+    return _protected_file_response(OUTPUT_DIR, file_path)
+
+
+@app.get("/downloads/{file_path:path}")
+async def serve_download(file_path: str, _auth: None = Depends(require_api_token)) -> FileResponse:
+    return _protected_file_response(DOWNLOAD_DIR, file_path)
 
 
 @app.post("/api/upload", response_model=UploadResponse)
@@ -232,6 +259,8 @@ async def upload_file(
     try:
         info = await save_upload_file(file)
     except InvalidFileExtensionError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InvalidFileContentError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except FileTooLargeError as exc:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc

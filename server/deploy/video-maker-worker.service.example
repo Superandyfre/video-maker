@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/personal/video-maker-server
-EnvironmentFile=/home/ubuntu/personal/video-maker-server/deploy/env.production
-ExecStart=/home/ubuntu/personal/video-maker-server/.venv/bin/python -m app.worker
+User=pinggu
+Group=pinggu
+WorkingDirectory=/home/pinggu/video-maker-repo/server
+EnvironmentFile=/home/pinggu/video-maker-repo/server/deploy/env.production
+ExecStart=/home/pinggu/video-maker-repo/server/.venv/bin/python -m app.worker
 Restart=always
 RestartSec=3
 

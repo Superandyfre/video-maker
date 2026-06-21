@@ -13,6 +13,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.security.MessageDigest
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
@@ -43,6 +45,7 @@ object UpdateInstallUtils {
         context: Context,
         apkUrl: String,
         versionName: String?,
+        expectedSha256: String?,
         apiToken: String,
         onProgress: (ApkDownloadProgress) -> Unit
     ): ApkDownloadResult = withContext(Dispatchers.IO) {
@@ -56,6 +59,12 @@ object UpdateInstallUtils {
         }.apply { mkdirs() }
         val destination = File(downloadDir, fileName)
         if (destination.exists()) destination.delete()
+        val normalizedExpectedSha256 = normalizeExpectedSha256(expectedSha256)
+            ?: return@withContext ApkDownloadResult(
+                filePath = destination.absolutePath,
+                isSuccessful = false,
+                message = "版本清单缺少有效的 SHA-256 校验值"
+            )
 
         val requestBuilder = Request.Builder().url(apkUrl)
         if (apiToken.isNotBlank()) {
@@ -81,6 +90,7 @@ object UpdateInstallUtils {
                 )
             }
             val totalBytes = body.contentLength().takeIf { it > 0 } ?: -1L
+            val digest = MessageDigest.getInstance("SHA-256")
 
             body.byteStream().use { input ->
                 destination.outputStream().use { output ->
@@ -93,6 +103,7 @@ object UpdateInstallUtils {
                         bytesRead = input.read(buffer)
                         if (bytesRead == -1) break
                         output.write(buffer, 0, bytesRead)
+                        digest.update(buffer, 0, bytesRead)
                         totalRead += bytesRead
                         if (totalBytes > 0) {
                             val percent = ((totalRead * 100L) / totalBytes).toInt().coerceIn(0, 100)
@@ -130,6 +141,15 @@ object UpdateInstallUtils {
                     message = "下载完成但文件为空"
                 )
             }
+            val actualSha256 = digest.digest().toHex()
+            if (actualSha256 != normalizedExpectedSha256) {
+                runCatching { destination.delete() }
+                return@withContext ApkDownloadResult(
+                    filePath = destination.absolutePath,
+                    isSuccessful = false,
+                    message = "安装包校验失败，已拒绝安装"
+                )
+            }
 
             ApkDownloadResult(
                 filePath = destination.absolutePath,
@@ -147,6 +167,15 @@ object UpdateInstallUtils {
                 message = "下载失败：${e.message ?: e.javaClass.simpleName}"
             )
         }
+    }
+
+    private fun normalizeExpectedSha256(value: String?): String? {
+        val cleaned = value
+            ?.trim()
+            ?.lowercase(Locale.US)
+            ?.replace(Regex("\\s"), "")
+            ?: return null
+        return cleaned.takeIf { Regex("^[a-f0-9]{64}$").matches(it) }
     }
 
     fun canRequestPackageInstalls(context: Context): Boolean {
@@ -190,5 +219,9 @@ object UpdateInstallUtils {
             idx++
         }
         return String.format("%.1f %s", value, units[idx])
+    }
+
+    private fun ByteArray.toHex(): String = joinToString(separator = "") { byte ->
+        "%02x".format(byte)
     }
 }

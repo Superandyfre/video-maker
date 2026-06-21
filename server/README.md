@@ -2,19 +2,19 @@
 
 一个用于生成 9:16 竖屏营销视频的 Python FastAPI 后端。用户上传图片或视频素材，提交标题、口播文案、模板和 TTS 音色后，服务会在后台生成 MP4 视频。
 
-当前版本是稳定 MVP：不包含 Android App、数据库、Redis、Celery、账号系统或复杂时间线编辑器，但支持公网域名后方部署、简单 Bearer Token 鉴权、TTS、字幕、BGM 混音和文件清理。
+当前版本是稳定 MVP：不包含 Redis、Celery、账号系统或复杂时间线编辑器，但支持公网域名后方部署、简单 Bearer Token 鉴权、SQLite 任务队列、独立 worker、TTS、字幕、BGM 混音和文件清理。
 
 ## 功能
 
-- 图片/视频素材上传，使用 UUID 保存文件。
+- 图片/视频素材上传，使用 UUID 保存文件，并校验扩展名、真实文件头或 ffprobe 媒体信息。
 - 使用 edge-tts 生成中文 TTS 配音。
 - 图片/视频自动转 1080x1920 或 720x1280 竖屏 H.264 片段。
 - 顶部标题、底部中文字幕，FFmpeg 缺 `subtitles/libass` 时自动使用 `drawtext` 字幕 fallback。
 - 可选背景音乐混音。
 - 智能生成接口：用户只传 prompt 和素材，后端自动生成标题、口播字幕、BGM mood 和花字卖点。
 - 输出 H.264、yuv420p、AAC、faststart MP4。
-- 内存任务状态查询和公开视频下载。
-- 可选 API Token 保护上传、创建任务和任务查询。
+- SQLite 任务状态查询和带租约的 worker 队列。
+- 可选 API Token 保护上传、创建任务、任务查询、历史、输出文件和 Android APK 下载。
 - 管理清理接口删除过期 temp/uploads/outputs 文件。
 
 ## 环境要求
@@ -65,14 +65,24 @@ HTTPS_PROXY=http://127.0.0.1:7890
 HTTP_PROXY=http://127.0.0.1:7890
 API_TOKEN=change-this-token
 PUBLIC_BASE_URL=https://video-maker.andyscodexagent.cyou
+UPLOAD_DIR=/absolute/path/to/uploads
+OUTPUT_DIR=/absolute/path/to/outputs
+TEMP_DIR=/absolute/path/to/temp
+DOWNLOAD_DIR=/absolute/path/to/downloads
+STATE_DIR=/absolute/path/to/state
 BGM_DIR=/absolute/path/to/bgm
 BGM_USAGE_HISTORY_PATH=/absolute/path/to/bgm_usage_history.json
+CORS_ALLOW_ORIGINS=https://video-maker.andyscodexagent.cyou
 DEEPSEEK_API_KEY=
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 LLM_PROVIDER=deepseek
 LLM_TIMEOUT_SECONDS=30
 MAX_UPLOAD_SIZE_MB=200
+MAX_VIDEO_UPLOAD_DURATION_SECONDS=300
+MAX_JOB_ASSETS=12
+MAX_SCRIPT_ITEMS=12
+MAX_SCRIPT_ITEM_CHARS=180
 OUTPUT_RETENTION_HOURS=168
 UPLOAD_RETENTION_HOURS=168
 TEMP_RETENTION_HOURS=24
@@ -82,10 +92,13 @@ TEMP_RETENTION_HOURS=24
 - `HTTPS_PROXY` / `HTTP_PROXY`：edge-tts 会读取这些代理变量；很多网络环境下 edge-tts websocket 需要代理才能连通。
 - `API_TOKEN`：为空时是本地开发模式，不强制鉴权；非空时受保护接口必须带 `Authorization: Bearer <token>`。
 - `PUBLIC_BASE_URL`：预留给公网 URL 拼接；当前 API 仍返回相对路径。
+- `UPLOAD_DIR` / `OUTPUT_DIR` / `TEMP_DIR` / `DOWNLOAD_DIR` / `STATE_DIR`：可选覆盖运行数据目录。生产环境建议用这些变量指向挂载盘或持久化目录，不要把运行数据做成仓库内绝对 symlink。
+- `CORS_ALLOW_ORIGINS`：逗号分隔的允许来源；默认 `*` 便于开发，生产环境建议收紧到实际域名。
 - `DEEPSEEK_API_KEY`：智能生成可选使用 DeepSeek；不要写入源码或 Android 客户端。
 - `BGM_DIR`：可选覆盖默认的 `assets/bgm/`，适合把 BGM 挂到单独磁盘或 WebDAV/rclone 挂载目录。
 - `BGM_USAGE_HISTORY_PATH`：可选覆盖 BGM 使用历史文件位置；当 `BGM_DIR` 指向只读挂载时，建议保留到本地 `state/` 目录。
 - `LLM_PROVIDER`：`deepseek` 时优先调用 DeepSeek，失败或未配置 key 会自动规则 fallback；`none` 时完全使用规则生成。
+- `MAX_VIDEO_UPLOAD_DURATION_SECONDS` / `MAX_JOB_ASSETS` / `MAX_SCRIPT_ITEMS` / `MAX_SCRIPT_ITEM_CHARS`：限制单次生成的资源成本。
 - retention 变量用于清理过期文件。
 
 ## API Token
@@ -95,14 +108,18 @@ TEMP_RETENTION_HOURS=24
 - `GET /api/health`
 - `GET /api/templates`
 - `GET /api/voices`
-- `GET /outputs/{filename}`
 
 当 `API_TOKEN` 非空时，以下接口必须带 Bearer Token：
 
+- `GET /app/android/latest.json`
 - `POST /api/upload`
 - `POST /api/jobs`
 - `POST /api/smart-jobs`
 - `GET /api/jobs/{job_id}`
+- `GET /api/history`
+- `GET /uploads/{filename}`
+- `GET /outputs/{filename}`
+- `GET /downloads/{path}`
 - `POST /api/admin/cleanup`
 
 示例：
@@ -178,7 +195,9 @@ curl -H "Authorization: Bearer change-this-token" \
 下载视频：
 
 ```bash
-curl -L -o result.mp4 http://127.0.0.1:8000/outputs/替换为job_id.mp4
+curl -L -o result.mp4 \
+  -H "Authorization: Bearer change-this-token" \
+  http://127.0.0.1:8000/outputs/替换为job_id.mp4
 ```
 
 ## BGM 文件
@@ -269,7 +288,7 @@ journalctl -u video-maker.service -f
 参考 `deploy/nginx.conf.example`。关键点：
 
 - `/api/` 反向代理到 `127.0.0.1:8000`。
-- `/outputs/` 可以反向代理，也可以用 `alias` 直接由 Nginx 托管。
+- `/outputs/`、`/uploads/`、`/downloads/` 必须反向代理到 FastAPI，避免绕过 token 校验。
 - `client_max_body_size 200M`。
 - `proxy_read_timeout 600s`。
 - HTTPS 证书路径替换为真实域名证书。

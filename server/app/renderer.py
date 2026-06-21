@@ -35,6 +35,16 @@ SUPPORTED_BGM_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
 _FILTER_CACHE: dict[str, bool] = {}
 
 
+class WorkerOwnershipLostError(RuntimeError):
+    pass
+
+
+def _update_render_job(job_id: str, worker_id: str | None = None, **kwargs) -> None:
+    job = update_job(job_id, expected_worker_id=worker_id, **kwargs)
+    if worker_id is not None and job is None:
+        raise WorkerOwnershipLostError(f"Worker lost ownership for job {job_id}")
+
+
 def _parse_resolution(resolution: str) -> tuple[int, int]:
     return SUPPORTED_RESOLUTIONS[resolution]
 
@@ -575,10 +585,17 @@ async def _render_segments(
     return segment_paths
 
 
-async def render_video(job_id: str, request: CreateJobRequest) -> Path:
+async def render_video(job_id: str, request: CreateJobRequest, worker_id: str | None = None) -> Path:
     temp_dir: Path | None = None
     try:
-        update_job(job_id, status=JobStatus.running, phase="preparing", progress=5, message="Preparing render")
+        _update_render_job(
+            job_id,
+            worker_id,
+            status=JobStatus.running,
+            phase="preparing",
+            progress=5,
+            message="Preparing render",
+        )
         cleanup_job_temp_dir(job_id)
         temp_dir = make_job_temp_dir(job_id)
         template_config = load_template(request.template)
@@ -593,13 +610,13 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
             asset_paths.append(path)
 
         voice_path = temp_dir / "voice.mp3"
-        update_job(job_id, phase="tts", progress=10, message="Generating TTS audio")
+        _update_render_job(job_id, worker_id, phase="tts", progress=10, message="Generating TTS audio")
         audio_duration = await synthesize_speech(request.script, request.voice, voice_path)
         audio_duration = max(0.5, audio_duration)
-        update_job(job_id, phase="tts", progress=20, message="TTS audio generated")
+        _update_render_job(job_id, worker_id, phase="tts", progress=20, message="TTS audio generated")
 
         segment_duration = max(0.1, audio_duration / max(1, len(asset_paths)))
-        update_job(job_id, phase="rendering_segments", progress=30, message="Rendering video segments")
+        _update_render_job(job_id, worker_id, phase="rendering_segments", progress=30, message="Rendering video segments")
         segment_paths = await _render_segments(
             asset_paths,
             temp_dir,
@@ -609,13 +626,13 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
             fps,
             request,
         )
-        update_job(job_id, phase="rendering_segments", progress=40, message="Video segments rendered")
+        _update_render_job(job_id, worker_id, phase="rendering_segments", progress=40, message="Video segments rendered")
 
         concat_path = temp_dir / "concat.txt"
         joined_path = temp_dir / "joined.mp4"
         _write_concat_file(segment_paths, concat_path)
         await _run_ffmpeg(_build_concat_cmd(concat_path, joined_path))
-        update_job(job_id, phase="joining_segments", progress=60, message="Video segments joined")
+        _update_render_job(job_id, worker_id, phase="joining_segments", progress=60, message="Video segments joined")
 
         working_video = joined_path
         segment_durations = [segment_duration] * len(asset_paths)
@@ -662,11 +679,11 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
                     )
                 )
             working_video = subtitle_video_path
-        update_job(job_id, phase="subtitles", progress=75, message="Subtitles processed")
+        _update_render_job(job_id, worker_id, phase="subtitles", progress=75, message="Subtitles processed")
 
         if request.options.title_enabled and request.title.strip():
             logger.info("Title rendering is disabled; ignoring title for job %s", job_id)
-        update_job(job_id, phase="title", progress=82, message="Title skipped")
+        _update_render_job(job_id, worker_id, phase="title", progress=82, message="Title skipped")
 
         if request.keyword_overlays:
             keyword_video_path = temp_dir / "with_keyword_overlays.mp4"
@@ -684,7 +701,13 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
                 try:
                     await _run_ffmpeg(keyword_cmd)
                     working_video = keyword_video_path
-                    update_job(job_id, phase="keyword_overlays", progress=85, message="Keyword overlays processed")
+                    _update_render_job(
+                        job_id,
+                        worker_id,
+                        phase="keyword_overlays",
+                        progress=85,
+                        message="Keyword overlays processed",
+                    )
                 except RuntimeError as exc:
                     logger.warning("Keyword overlay rendering failed; continuing without overlays: %s", exc)
 
@@ -693,10 +716,11 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
         final_duration = await _probe_duration(final_output_path)
         if final_duration <= 0 or final_output_path.stat().st_size == 0:
             raise RuntimeError("Final MP4 was created but appears to be empty")
-        update_job(job_id, phase="mixing_audio", progress=90, message="Audio mixed")
+        _update_render_job(job_id, worker_id, phase="mixing_audio", progress=90, message="Audio mixed")
 
-        update_job(
+        _update_render_job(
             job_id,
+            worker_id,
             status=JobStatus.done,
             phase="completed",
             progress=100,
@@ -707,14 +731,20 @@ async def render_video(job_id: str, request: CreateJobRequest) -> Path:
         if CLEANUP_TEMP_AFTER_SUCCESS and temp_dir is not None:
             cleanup_job_temp_dir(job_id)
         return final_output_path
+    except WorkerOwnershipLostError:
+        logger.warning("Render job %s stopped because worker ownership was lost", job_id)
+        raise
     except Exception as exc:
         logger.exception("Render job %s failed", job_id)
-        update_job(
+        failed_job = update_job(
             job_id,
             status=JobStatus.failed,
             phase="failed",
             progress=0,
             message="Failed",
             error=_public_error(exc),
+            expected_worker_id=worker_id,
         )
+        if worker_id is not None and failed_job is None:
+            logger.warning("Failed to mark job %s failed because worker ownership was lost", job_id)
         raise

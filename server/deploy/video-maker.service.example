@@ -7,12 +7,11 @@ Wants=network-online.target
 Type=simple
 User=pinggu
 Group=pinggu
-WorkingDirectory=/home/pinggu/personal/video-maker-server
-EnvironmentFile=/home/pinggu/personal/video-maker-server/deploy/env.example
-ExecStart=/home/pinggu/personal/video-maker-server/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/home/pinggu/video-maker-repo/server
+EnvironmentFile=/home/pinggu/video-maker-repo/server/deploy/env.production
+ExecStart=/home/pinggu/video-maker-repo/server/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
-

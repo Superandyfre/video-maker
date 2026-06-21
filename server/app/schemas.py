@@ -6,7 +6,15 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.config import DEFAULT_FPS, DEFAULT_RESOLUTION, DEFAULT_VOICE, SUPPORTED_RESOLUTIONS
+from app.config import (
+    DEFAULT_FPS,
+    DEFAULT_RESOLUTION,
+    DEFAULT_VOICE,
+    MAX_JOB_ASSETS,
+    MAX_SCRIPT_ITEM_CHARS,
+    MAX_SCRIPT_ITEMS,
+    SUPPORTED_RESOLUTIONS,
+)
 
 
 class UploadResponse(BaseModel):
@@ -270,8 +278,8 @@ class SmartScriptResult(BaseModel):
 class CreateJobRequest(BaseModel):
     template: str = Field(..., min_length=1, max_length=80)
     title: str = Field(default="", max_length=120)
-    script: list[str] = Field(..., min_length=1, max_length=30)
-    assets: list[str] = Field(..., min_length=1, max_length=30)
+    script: list[str] = Field(..., min_length=1, max_length=MAX_SCRIPT_ITEMS)
+    assets: list[str] = Field(..., min_length=1, max_length=MAX_JOB_ASSETS)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     ratio: str = "9:16"
     resolution: str = DEFAULT_RESOLUTION
@@ -295,8 +303,8 @@ class CreateJobRequest(BaseModel):
             text = item.strip()
             if not text:
                 raise ValueError("script items cannot be empty")
-            if len(text) > 300:
-                raise ValueError("each script item must be 300 characters or fewer")
+            if len(text) > MAX_SCRIPT_ITEM_CHARS:
+                raise ValueError(f"each script item must be {MAX_SCRIPT_ITEM_CHARS} characters or fewer")
             cleaned.append(text)
         return cleaned
 
@@ -331,7 +339,7 @@ class CreateJobRequest(BaseModel):
 class SmartJobRequest(BaseModel):
     template: str = Field(..., min_length=1, max_length=80)
     prompt: str = Field(..., min_length=5, max_length=500)
-    assets: list[str] = Field(..., min_length=1, max_length=30)
+    assets: list[str] = Field(..., min_length=1, max_length=MAX_JOB_ASSETS)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     ratio: str = "9:16"
     resolution: str = DEFAULT_RESOLUTION
@@ -430,3 +438,15 @@ class AppUpdateResponse(BaseModel):
     apkUrl: str = Field(..., min_length=1, max_length=500)
     releaseNotes: str = Field(default="", max_length=2000)
     sha256: Optional[str] = Field(default=None, max_length=128)
+
+    @field_validator("sha256")
+    @classmethod
+    def validate_sha256(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not cleaned:
+            return None
+        if len(cleaned) != 64 or any(char not in "0123456789abcdef" for char in cleaned):
+            raise ValueError("sha256 must be a 64-character lowercase hex digest")
+        return cleaned

@@ -17,7 +17,7 @@ from app.config import (
     WORKER_LEASE_SECONDS,
 )
 from app.jobs import claim_next_queued_job, heartbeat_job, requeue_expired_jobs, requeue_running_jobs, update_job
-from app.renderer import render_video
+from app.renderer import WorkerOwnershipLostError, render_video
 from app.schemas import CreateJobRequest
 from app.state_db import initialize_database
 from app.storage import ensure_directories
@@ -35,7 +35,15 @@ async def _run_claimed_job(job_id: str, payload: str, worker_id: str) -> None:
         request = CreateJobRequest.model_validate_json(payload)
     except Exception as exc:
         logger.exception("Invalid queued job payload for job %s", job_id)
-        update_job(job_id, status="failed", phase="failed", progress=0, message="Failed", error=f"Invalid job payload: {exc}")
+        update_job(
+            job_id,
+            status="failed",
+            phase="failed",
+            progress=0,
+            message="Failed",
+            error=f"Invalid job payload: {exc}",
+            expected_worker_id=worker_id,
+        )
         return
     stop_event = asyncio.Event()
 
@@ -54,7 +62,9 @@ async def _run_claimed_job(job_id: str, payload: str, worker_id: str) -> None:
     heartbeat_task = asyncio.create_task(heartbeat_loop())
     try:
         try:
-            await asyncio.wait_for(render_video(job_id, request), timeout=JOB_TIMEOUT_SECONDS)
+            await asyncio.wait_for(render_video(job_id, request, worker_id=worker_id), timeout=JOB_TIMEOUT_SECONDS)
+        except WorkerOwnershipLostError:
+            logger.warning("Worker %s stopped job %s after losing ownership", worker_id, job_id)
         except asyncio.TimeoutError:
             logger.error("Job %s exceeded %ss timeout, aborting", job_id, JOB_TIMEOUT_SECONDS)
             update_job(
@@ -64,6 +74,7 @@ async def _run_claimed_job(job_id: str, payload: str, worker_id: str) -> None:
                 progress=0,
                 message="Job exceeded time limit",
                 error=f"Worker aborted job after {JOB_TIMEOUT_SECONDS}s without completion",
+                expected_worker_id=worker_id,
             )
     finally:
         stop_event.set()

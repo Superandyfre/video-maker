@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.BackTopBar
@@ -128,7 +130,7 @@ fun HistoryDetailScreen(
                     SoftSurfaceCard(
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
                     ) {
-                        HistoryVideoPlayer(url = record.videoFullUrl)
+                        HistoryVideoPlayer(url = record.videoFullUrl, apiToken = settingsState.apiToken)
                     }
                     SoftPrimaryButton(
                         text = if (isDownloading) "正在下载..." else "下载视频",
@@ -171,10 +173,20 @@ fun HistoryDetailScreen(
 }
 
 @Composable
-private fun HistoryVideoPlayer(url: String) {
+private fun HistoryVideoPlayer(url: String, apiToken: String) {
     val context = LocalContext.current
-    val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
+    val player = remember(url, apiToken) {
+        val headers = if (apiToken.isNotBlank()) {
+            mapOf("Authorization" to "Bearer $apiToken")
+        } else {
+            emptyMap()
+        }
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(headers)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build()
+            .apply {
             setMediaItem(MediaItem.fromUri(url))
             prepare()
             playWhenReady = false

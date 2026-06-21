@@ -11,7 +11,9 @@ from app.schemas import BgmCandidate, BgmDecision, BgmProfile, KeywordOverlay
 from app.smart_script import _normalize_result, generate_smart_script
 from app.subtitle import subtitle_max_chars_per_line, wrap_subtitle_text
 import app.bgm_selector as bgm_selector
+import app.jobs as jobs_module
 import app.main as main_module
+import app.storage as storage_module
 import app.updates as updates
 
 
@@ -64,7 +66,7 @@ def test_android_latest_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
   "versionName": "0.1.10",
   "apkUrl": "/downloads/android/video-maker-android-0.1.10.apk",
   "releaseNotes": "新增关于与更新安装功能",
-  "sha256": "abc123"
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 """.strip(),
         encoding="utf-8",
@@ -79,7 +81,7 @@ def test_android_latest_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert data["versionName"] == "0.1.10"
     assert data["apkUrl"] == "/downloads/android/video-maker-android-0.1.10.apk"
     assert data["releaseNotes"] == "新增关于与更新安装功能"
-    assert data["sha256"] == "abc123"
+    assert data["sha256"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 
 def test_android_latest_manifest_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -89,6 +91,44 @@ def test_android_latest_manifest_missing(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Android update manifest not found"
+
+
+def test_android_latest_manifest_requires_token_when_configured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest = tmp_path / "latest.json"
+    manifest.write_text(
+        """
+{
+  "versionCode": 11,
+  "versionName": "0.1.10",
+  "apkUrl": "/downloads/android/video-maker-android-0.1.10.apk",
+  "releaseNotes": "token protected",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(updates, "ANDROID_UPDATE_MANIFEST_PATH", manifest)
+    monkeypatch.setenv("API_TOKEN", "test-token")
+
+    assert client.get("/app/android/latest.json").status_code == 401
+    response = client.get("/app/android/latest.json", headers={"Authorization": "Bearer test-token"})
+
+    assert response.status_code == 200
+    assert response.json()["versionCode"] == 11
+
+
+def test_protected_output_requires_token(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    (output_dir / "sample.mp4").write_bytes(b"video")
+    monkeypatch.setattr(main_module, "OUTPUT_DIR", output_dir)
+    monkeypatch.setenv("API_TOKEN", "test-token")
+
+    assert client.get("/outputs/sample.mp4").status_code == 401
+    response = client.get("/outputs/sample.mp4", headers={"Authorization": "Bearer test-token"})
+
+    assert response.status_code == 200
+    assert response.content == b"video"
 
 
 def test_invalid_job_id_returns_404() -> None:
@@ -129,6 +169,20 @@ def test_upload_requires_token_when_configured(monkeypatch: pytest.MonkeyPatch) 
     assert response.status_code == 401
 
 
+def test_upload_rejects_fake_image_content(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    upload_dir = tmp_path / "uploads"
+    upload_dir.mkdir()
+    monkeypatch.setattr(storage_module, "UPLOAD_DIR", upload_dir)
+
+    response = client.post(
+        "/api/upload",
+        files={"file": ("test.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert "image content" in response.json()["detail"]
+
+
 def test_smart_jobs_requires_token_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_TOKEN", "test-token")
     response = client.post(
@@ -164,6 +218,21 @@ def test_smart_jobs_rejects_short_prompt(monkeypatch: pytest.MonkeyPatch) -> Non
         },
     )
     assert response.status_code == 422
+
+
+def test_worker_owned_update_rejects_wrong_worker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("STATE_DB_PATH", str(tmp_path / "jobs.sqlite3"))
+    job = jobs_module.create_job({"template": "product_basic"})
+    claimed = jobs_module.claim_next_queued_job("worker-a")
+
+    assert claimed is not None
+    assert claimed.job_id == job.job_id
+    assert jobs_module.update_job(job.job_id, phase="bad", expected_worker_id="worker-b") is None
+
+    updated = jobs_module.update_job(job.job_id, phase="good", expected_worker_id="worker-a")
+
+    assert updated is not None
+    assert updated.phase == "good"
 
 
 def test_smart_script_fallback_generates_complete_result(monkeypatch: pytest.MonkeyPatch) -> None:

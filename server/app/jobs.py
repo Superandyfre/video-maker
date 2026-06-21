@@ -147,9 +147,16 @@ def update_job(
     message: Optional[str] = None,
     video_url: Optional[str] = None,
     error: Optional[str] = None,
+    expected_worker_id: Optional[str] = None,
 ) -> Optional[JobInfo]:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+        if expected_worker_id is None:
+            row = connection.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+        else:
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE job_id = ? AND status = ? AND worker_id = ?",
+                (job_id, JobStatus.running.value, expected_worker_id),
+            ).fetchone()
         if row is None:
             return None
         job = _row_to_job(row)
@@ -176,12 +183,17 @@ def update_job(
             lease_expires_at = job.lease_expires_at.isoformat() if job.lease_expires_at else None
             worker_id = job.worker_id
         job.updated_at = _utcnow()
-        connection.execute(
-            """
+        where_clause = "WHERE job_id = ?"
+        params_tail: tuple[str, ...] = (job_id,)
+        if expected_worker_id is not None:
+            where_clause += " AND worker_id = ?"
+            params_tail = (job_id, expected_worker_id)
+        cursor = connection.execute(
+            f"""
             UPDATE jobs
             SET status = ?, phase = ?, progress = ?, message = ?, video_url = ?, error = ?, worker_id = ?,
                 heartbeat_at = ?, lease_expires_at = ?, updated_at = ?, finished_at = COALESCE(?, finished_at)
-            WHERE job_id = ?
+            {where_clause}
             """,
             (
                 job.status.value,
@@ -195,9 +207,11 @@ def update_job(
                 lease_expires_at,
                 job.updated_at.isoformat(),
                 finished_at,
-                job_id,
+                *params_tail,
             ),
         )
+        if cursor.rowcount != 1:
+            return None
         return job
 
 

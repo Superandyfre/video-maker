@@ -46,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.BackTopBar
@@ -131,7 +133,7 @@ fun ResultScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp),
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
                 ) {
-                    VideoPlayer(url = videoUrl)
+                    VideoPlayer(url = videoUrl, apiToken = settingsState.apiToken)
                 }
                 SoftSurfaceCard(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
@@ -238,10 +240,20 @@ private fun ResultActionButton(
 }
 
 @Composable
-private fun VideoPlayer(url: String) {
+private fun VideoPlayer(url: String, apiToken: String) {
     val context = LocalContext.current
-    val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
+    val player = remember(url, apiToken) {
+        val headers = if (apiToken.isNotBlank()) {
+            mapOf("Authorization" to "Bearer $apiToken")
+        } else {
+            emptyMap()
+        }
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(headers)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build()
+            .apply {
             setMediaItem(MediaItem.fromUri(url))
             prepare()
             playWhenReady = false

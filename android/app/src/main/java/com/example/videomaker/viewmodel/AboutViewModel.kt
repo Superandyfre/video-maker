@@ -94,6 +94,7 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
                 context = context,
                 apkUrl = apkUrl,
                 versionName = latest.versionName,
+                expectedSha256 = latest.sha256,
                 apiToken = state.apiToken
             ) { progress ->
                 _uiState.update {

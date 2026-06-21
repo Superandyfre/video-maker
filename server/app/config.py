@@ -23,17 +23,30 @@ def _get_bool(name: str, default: bool = False) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _get_csv(name: str, default: list[str]) -> list[str]:
+    value = _get_str(name)
+    if not value:
+        return default
+    items = [item.strip() for item in value.split(",")]
+    return [item for item in items if item]
+
+
+def _get_path(name: str, default: Path) -> Path:
+    value = _get_str(name)
+    return Path(value).expanduser() if value else default
+
+
 VERSION = "0.1.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "outputs"
-TEMP_DIR = BASE_DIR / "temp"
-DOWNLOAD_DIR = BASE_DIR / "downloads"
+UPLOAD_DIR = _get_path("UPLOAD_DIR", BASE_DIR / "uploads")
+OUTPUT_DIR = _get_path("OUTPUT_DIR", BASE_DIR / "outputs")
+TEMP_DIR = _get_path("TEMP_DIR", BASE_DIR / "temp")
+DOWNLOAD_DIR = _get_path("DOWNLOAD_DIR", BASE_DIR / "downloads")
 ANDROID_RELEASE_DIR = DOWNLOAD_DIR / "android"
 _ANDROID_UPDATE_MANIFEST = _get_str("ANDROID_UPDATE_MANIFEST_PATH")
 ANDROID_UPDATE_MANIFEST_PATH = Path(_ANDROID_UPDATE_MANIFEST) if _ANDROID_UPDATE_MANIFEST else ANDROID_RELEASE_DIR / "latest.json"
-STATE_DIR = BASE_DIR / "state"
+STATE_DIR = _get_path("STATE_DIR", BASE_DIR / "state")
 _STATE_DB_PATH = _get_str("STATE_DB_PATH")
 STATE_DB_PATH = Path(_STATE_DB_PATH) if _STATE_DB_PATH else STATE_DIR / "video_maker.sqlite3"
 TEMPLATE_DIR = BASE_DIR / "app" / "templates"
@@ -50,6 +63,7 @@ HTTP_PROXY = _get_str("HTTP_PROXY") or _get_str("http_proxy")
 HTTPS_PROXY = _get_str("HTTPS_PROXY") or _get_str("https_proxy")
 API_TOKEN = _get_str("API_TOKEN")
 PUBLIC_BASE_URL = _get_str("PUBLIC_BASE_URL")
+CORS_ALLOW_ORIGINS = _get_csv("CORS_ALLOW_ORIGINS", ["*"])
 DEEPSEEK_API_KEY = _get_str("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = _get_str("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
 DEEPSEEK_MODEL = _get_str("DEEPSEEK_MODEL", "deepseek-chat")
@@ -59,6 +73,10 @@ BGM_ALLOW_ATTRIBUTION_REQUIRED = _get_bool("BGM_ALLOW_ATTRIBUTION_REQUIRED", Fal
 
 MAX_UPLOAD_SIZE_MB = _get_int("MAX_UPLOAD_SIZE_MB", 200)
 MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+MAX_VIDEO_UPLOAD_DURATION_SECONDS = _get_int("MAX_VIDEO_UPLOAD_DURATION_SECONDS", 300)
+MAX_JOB_ASSETS = _get_int("MAX_JOB_ASSETS", 12)
+MAX_SCRIPT_ITEMS = _get_int("MAX_SCRIPT_ITEMS", 12)
+MAX_SCRIPT_ITEM_CHARS = _get_int("MAX_SCRIPT_ITEM_CHARS", 180)
 OUTPUT_RETENTION_HOURS = _get_int("OUTPUT_RETENTION_HOURS", 168)
 UPLOAD_RETENTION_HOURS = _get_int("UPLOAD_RETENTION_HOURS", 168)
 TEMP_RETENTION_HOURS = _get_int("TEMP_RETENTION_HOURS", 24)
