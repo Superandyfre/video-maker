@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -62,34 +65,45 @@ fun PromptComposer(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val haptic = LocalHapticFeedback.current
+    val composerShape = RoundedCornerShape(42.dp)
+    val composerColor = if (isDark) {
+        Color(0xE61A1B22)
+    } else {
+        Color.White.copy(alpha = 0.94f)
+    }
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, colors.outline.copy(alpha = 0.14f), RoundedCornerShape(34.dp)),
-        shape = RoundedCornerShape(34.dp),
-        color = colors.surface.copy(alpha = 0.94f),
+            .border(
+                width = 1.dp,
+                color = if (isDark) Color.White.copy(alpha = 0.10f) else colors.outline.copy(alpha = 0.14f),
+                shape = composerShape
+            ),
+        shape = composerShape,
+        color = composerColor,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = if (isDark) 0.dp else 8.dp
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             BasicTextField(
                 value = prompt,
                 onValueChange = onPromptChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 92.dp, max = 168.dp),
+                    .heightIn(min = 98.dp, max = 176.dp),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface),
                 cursorBrush = SolidColor(colors.primary),
                 decorationBox = { innerTextField ->
                     Box(modifier = Modifier.fillMaxWidth()) {
                         if (prompt.isBlank()) {
                             Text(
-                                text = "描述你想生成的营销视频...",
+                                text = "描述你想生成的视频...",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = colors.onSurfaceVariant.copy(alpha = 0.72f)
                             )
@@ -113,24 +127,34 @@ fun PromptComposer(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconActionButton(
-                    icon = Icons.Rounded.Add,
-                    contentDescription = "添加图片或视频素材",
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAddMedia()
-                    },
-                    containerColor = colors.primaryContainer.copy(alpha = 0.76f),
-                    contentColor = colors.onPrimaryContainer
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    IconActionButton(
+                        icon = Icons.Rounded.Add,
+                        contentDescription = "添加图片或视频素材",
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAddMedia()
+                        },
+                        containerColor = colors.primaryContainer.copy(alpha = if (isDark) 0.82f else 0.76f),
+                        contentColor = colors.onPrimaryContainer
+                    )
+                    IconActionButton(
+                        icon = Icons.Rounded.Tune,
+                        contentDescription = "生成参数",
+                        onClick = onOpenTools,
+                        containerColor = colors.surfaceVariant.copy(alpha = if (isDark) 0.58f else 0.70f),
+                        contentColor = colors.onSurfaceVariant
+                    )
+                }
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onGenerate()
                     },
                     enabled = canGenerate && !isBusy,
+                    modifier = Modifier.size(48.dp),
                     shape = RoundedCornerShape(999.dp),
-                    contentPadding = PaddingValues(14.dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colors.primary,
                         contentColor = colors.onPrimary,

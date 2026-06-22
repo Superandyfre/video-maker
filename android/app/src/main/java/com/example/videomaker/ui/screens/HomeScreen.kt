@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.DropdownSelector
@@ -104,7 +105,7 @@ fun HomeScreen(
         ModalBottomSheet(
             onDismissRequest = { showTools = false },
             sheetState = sheetState,
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+            shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             ToolSheetContent(
@@ -127,7 +128,7 @@ fun HomeScreen(
         }
     }
 
-    AppScreenScaffold { padding ->
+    AppScreenScaffold(animatedBackground = true) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -150,13 +151,28 @@ fun HomeScreen(
                 onHistory = onHistory,
                 onSettings = onSettings
             )
-            Spacer(modifier = Modifier.height(26.dp))
-            Text(
-                text = "今天想做什么视频？",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    Text(
+                        text = "今天想做什么视频？",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center
+                    )
+                    PromptSuggestionRow(
+                        onSuggestion = createVideoViewModel::updatePrompt
+                    )
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -312,6 +328,32 @@ private fun ActiveGenerationButton(
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = Color.White
         )
+    }
+}
+
+@Composable
+private fun PromptSuggestionRow(
+    onSuggestion: (String) -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val suggestions = listOf("新品发布", "门店活动", "节日促销")
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            suggestions.forEach { suggestion ->
+                StatusPill(
+                    text = suggestion,
+                    containerColor = colors.surface.copy(alpha = 0.66f),
+                    contentColor = colors.onSurfaceVariant,
+                    onClick = { onSuggestion(suggestion) }
+                )
+            }
+        }
     }
 }
 

@@ -1,8 +1,16 @@
 package com.example.videomaker.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
@@ -57,9 +65,13 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AppScreenScaffold(
     modifier: Modifier = Modifier,
+    animatedBackground: Boolean = false,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    AppGradientBackground(modifier = modifier) {
+    AppGradientBackground(
+        modifier = modifier,
+        animated = animatedBackground
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground,
@@ -71,11 +83,60 @@ fun AppScreenScaffold(
 @Composable
 fun AppGradientBackground(
     modifier: Modifier = Modifier,
+    animated: Boolean = false,
     content: @Composable BoxScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val base = colors.background
-    val surfaceBlend = lerp(base, colors.surface, 0.62f)
+    val surfaceBlend = if (isDark) {
+        lerp(base, colors.surface, 0.22f)
+    } else {
+        lerp(base, Color.White, 0.72f)
+    }
+    val transition = if (animated) rememberInfiniteTransition(label = "home-gradient") else null
+    val motion = if (transition != null) {
+        val value by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 18_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "home-gradient-motion"
+        )
+        value
+    } else {
+        0f
+    }
+    val staticAuroraModifier = if (animated) {
+        Modifier
+    } else {
+        Modifier.drawWithCache {
+            val topAurora = Brush.linearGradient(
+                colors = listOf(
+                    colors.primary.copy(alpha = 0.16f),
+                    colors.secondary.copy(alpha = 0.08f),
+                    Color.Transparent
+                ),
+                start = Offset(0f, 0f),
+                end = Offset(size.width * 0.95f, size.height * 0.45f)
+            )
+            val lowerAurora = Brush.linearGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    colors.tertiary.copy(alpha = 0.08f),
+                    colors.primary.copy(alpha = 0.06f)
+                ),
+                start = Offset(size.width, size.height * 0.35f),
+                end = Offset(0f, size.height)
+            )
+            onDrawBehind {
+                drawRect(topAurora)
+                drawRect(lowerAurora)
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -89,31 +150,69 @@ fun AppGradientBackground(
                     )
                 )
             )
-            .drawWithCache {
-                val topAurora = Brush.linearGradient(
-                    colors = listOf(
-                        colors.primary.copy(alpha = 0.16f),
-                        colors.secondary.copy(alpha = 0.08f),
-                        Color.Transparent
-                    ),
-                    start = Offset(0f, 0f),
-                    end = Offset(size.width * 0.95f, size.height * 0.45f)
-                )
-                val lowerAurora = Brush.linearGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        colors.tertiary.copy(alpha = 0.08f),
-                        colors.primary.copy(alpha = 0.06f)
-                    ),
-                    start = Offset(size.width, size.height * 0.35f),
-                    end = Offset(0f, size.height)
-                )
-                onDrawBehind {
-                    drawRect(topAurora)
-                    drawRect(lowerAurora)
-                }
-            }
+            .then(staticAuroraModifier)
     ) {
+        if (animated) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val primaryAlpha = if (isDark) 0.28f else 0.20f
+                val secondaryAlpha = if (isDark) 0.22f else 0.16f
+                val tertiaryAlpha = if (isDark) 0.18f else 0.13f
+                val width = size.width
+                val height = size.height
+                val primaryCenter = Offset(
+                    x = width * (0.12f + 0.22f * motion),
+                    y = height * (0.18f + 0.08f * motion)
+                )
+                val secondaryCenter = Offset(
+                    x = width * (0.88f - 0.24f * motion),
+                    y = height * (0.40f + 0.10f * motion)
+                )
+                val lowerCenter = Offset(
+                    x = width * (0.36f + 0.30f * motion),
+                    y = height * (0.94f - 0.08f * motion)
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colors.primary.copy(alpha = primaryAlpha),
+                            colors.primary.copy(alpha = primaryAlpha * 0.34f),
+                            Color.Transparent
+                        ),
+                        center = primaryCenter,
+                        radius = width.coerceAtLeast(height) * 0.58f
+                    ),
+                    radius = width.coerceAtLeast(height) * 0.58f,
+                    center = primaryCenter
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colors.secondary.copy(alpha = secondaryAlpha),
+                            colors.secondary.copy(alpha = secondaryAlpha * 0.30f),
+                            Color.Transparent
+                        ),
+                        center = secondaryCenter,
+                        radius = width.coerceAtLeast(height) * 0.54f
+                    ),
+                    radius = width.coerceAtLeast(height) * 0.54f,
+                    center = secondaryCenter
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colors.tertiary.copy(alpha = tertiaryAlpha),
+                            colors.primary.copy(alpha = tertiaryAlpha * 0.24f),
+                            Color.Transparent
+                        ),
+                        center = lowerCenter,
+                        radius = width.coerceAtLeast(height) * 0.64f
+                    ),
+                    radius = width.coerceAtLeast(height) * 0.64f,
+                    center = lowerCenter
+                )
+            }
+        }
         content()
     }
 }
