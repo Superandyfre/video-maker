@@ -34,6 +34,8 @@ data class CreateVideoUiState(
     val bgmFilename: String = "test_bgm.wav",
     val selectedMedia: List<SelectedMedia> = emptyList(),
     val capabilities: CapabilitiesResponse = CapabilitiesResponse(),
+    val loadedOptionsBaseUrl: String? = null,
+    val loadedOptionsApiToken: String? = null,
     val isLoadingOptions: Boolean = false,
     val error: String? = null
 )
@@ -47,10 +49,21 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
     fun loadOptions() {
         if (_uiState.value.isLoadingOptions) return
         viewModelScope.launch {
+            val settings = repository.settingsFlow.first()
+            val baseUrl = settings.baseUrl.trim()
+            val apiToken = settings.apiToken.trim()
+            val current = _uiState.value
+            if (
+                current.loadedOptionsBaseUrl == baseUrl &&
+                current.loadedOptionsApiToken == apiToken &&
+                current.templates.isNotEmpty() &&
+                current.voices.isNotEmpty()
+            ) {
+                return@launch
+            }
             _uiState.update { it.copy(isLoadingOptions = true, error = null) }
             runCatching {
-                val settings = repository.settingsFlow.first()
-                val api = ApiClient.create(settings.baseUrl, settings.apiToken)
+                val api = ApiClient.create(baseUrl, apiToken)
                 Triple(api.templates().templates, api.voices(), api.capabilities())
             }.onSuccess { (templates, voices, capabilities) ->
                 _uiState.update { state ->
@@ -58,10 +71,16 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
                         templates = templates,
                         voices = voices,
                         capabilities = capabilities,
-                        selectedTemplate = templates.firstOrNull()?.name ?: state.selectedTemplate,
-                        selectedVoice = voices.firstOrNull()?.id ?: state.selectedVoice,
+                        selectedTemplate = templates.firstOrNull { it.name == state.selectedTemplate }?.name
+                            ?: templates.firstOrNull()?.name
+                            ?: state.selectedTemplate,
+                        selectedVoice = voices.firstOrNull { it.id == state.selectedVoice }?.id
+                            ?: voices.firstOrNull()?.id
+                            ?: state.selectedVoice,
                         resolution = capabilities.supportedResolutions.firstOrNull { it == state.resolution }
                             ?: capabilities.defaultResolution,
+                        loadedOptionsBaseUrl = baseUrl,
+                        loadedOptionsApiToken = apiToken,
                         isLoadingOptions = false,
                         error = null
                     )

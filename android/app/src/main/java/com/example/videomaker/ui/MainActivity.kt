@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.animation.slideInHorizontally
@@ -38,7 +38,7 @@ import com.example.videomaker.viewmodel.GenerateViewModel
 import com.example.videomaker.viewmodel.HistoryViewModel
 import com.example.videomaker.viewmodel.SettingsViewModel
 
-private const val PageTransitionDurationMillis = 240
+private const val PageTransitionDurationMillis = 180
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,43 +94,44 @@ fun VideoMakerApp() {
                 startDestination = "home",
                 enterTransition = {
                     slideInHorizontally(
-                        initialOffsetX = { fullWidth -> fullWidth / 5 },
+                        initialOffsetX = { fullWidth -> fullWidth },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearEasing
+                            easing = FastOutSlowInEasing
                         )
                     )
                 },
                 exitTransition = {
                     slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth / 5 },
+                        targetOffsetX = { fullWidth -> -fullWidth },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearEasing
+                            easing = FastOutSlowInEasing
                         )
                     )
                 },
                 popEnterTransition = {
                     slideInHorizontally(
-                        initialOffsetX = { fullWidth -> -fullWidth / 5 },
+                        initialOffsetX = { fullWidth -> -fullWidth },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearEasing
+                            easing = FastOutSlowInEasing
                         )
                     )
                 },
                 popExitTransition = {
                     slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> fullWidth / 5 },
+                        targetOffsetX = { fullWidth -> fullWidth },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearEasing
+                            easing = FastOutSlowInEasing
                         )
                     )
                 }
             ) {
             composable("home") {
                 HomeScreen(
+                    isCurrentRoute = currentRoute == "home",
                     settingsViewModel = settingsViewModel,
                     createVideoViewModel = createVideoViewModel,
                     isGenerating = generateState.isRunning,

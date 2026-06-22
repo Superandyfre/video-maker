@@ -77,11 +77,16 @@ import com.example.videomaker.viewmodel.CreateVideoUiState
 import com.example.videomaker.viewmodel.CreateVideoViewModel
 import com.example.videomaker.viewmodel.GenerationInput
 import com.example.videomaker.viewmodel.SettingsViewModel
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+
+private const val HomeBackgroundMotionDelayMillis = 260L
+private const val HomeOptionsLoadDelayMillis = 260L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    isCurrentRoute: Boolean,
     settingsViewModel: SettingsViewModel,
     createVideoViewModel: CreateVideoViewModel,
     isGenerating: Boolean,
@@ -96,14 +101,24 @@ fun HomeScreen(
     val settingsState by settingsViewModel.uiState.collectAsState()
     val createState by createVideoViewModel.uiState.collectAsState()
     var showTools by remember { mutableStateOf(false) }
+    var backgroundMotionEnabled by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 30),
         onResult = createVideoViewModel::addMedia
     )
 
-    LaunchedEffect(settingsState.baseUrl, settingsState.apiToken) {
-        if (settingsState.baseUrl.isNotBlank()) {
+    LaunchedEffect(isCurrentRoute) {
+        backgroundMotionEnabled = false
+        if (isCurrentRoute) {
+            delay(HomeBackgroundMotionDelayMillis)
+            backgroundMotionEnabled = true
+        }
+    }
+
+    LaunchedEffect(settingsState.baseUrl, settingsState.apiToken, isCurrentRoute) {
+        if (isCurrentRoute && settingsState.baseUrl.isNotBlank()) {
+            delay(HomeOptionsLoadDelayMillis)
             createVideoViewModel.loadOptions()
         }
     }
@@ -135,7 +150,7 @@ fun HomeScreen(
         }
     }
 
-    AppScreenScaffold(animatedBackground = true) { padding ->
+    AppScreenScaffold(animatedBackground = backgroundMotionEnabled) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
