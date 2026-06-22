@@ -21,8 +21,8 @@ android {
         applicationId = "com.example.videomaker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "0.1.31"
+        versionCode = 33
+        versionName = "0.1.32"
     }
 
     signingConfigs {
