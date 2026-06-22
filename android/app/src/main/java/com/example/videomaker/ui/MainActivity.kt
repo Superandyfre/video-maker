@@ -4,17 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -77,35 +81,43 @@ fun VideoMakerApp() {
     }
 
     VideoMakerTheme(darkTheme = darkTheme, dynamicColor = false) {
-        NavHost(
-            modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-            navController = navController,
-            startDestination = "home",
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { fullWidth -> fullWidth / 5 },
-                    animationSpec = tween(
-                        durationMillis = PageTransitionDurationMillis,
-                        easing = FastOutSlowInEasing
-                    )
-                ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(PageTransitionDurationMillis / 2))
-            },
-            popEnterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { fullWidth -> -fullWidth / 5 },
-                    animationSpec = tween(
-                        durationMillis = PageTransitionDurationMillis,
-                        easing = FastOutSlowInEasing
-                    )
-                ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(PageTransitionDurationMillis / 2))
-            }
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            color = MaterialTheme.colorScheme.background
         ) {
+            NavHost(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                navController = navController,
+                startDestination = "home",
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth / 5 },
+                        animationSpec = tween(
+                            durationMillis = PageTransitionDurationMillis,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+                },
+                exitTransition = {
+                    ExitTransition.None
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 5 },
+                        animationSpec = tween(
+                            durationMillis = PageTransitionDurationMillis,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+                },
+                popExitTransition = {
+                    ExitTransition.None
+                }
+            ) {
             composable("home") {
                 HomeScreen(
                     settingsViewModel = settingsViewModel,
@@ -196,6 +208,7 @@ fun VideoMakerApp() {
                     onBack = { navController.popBackStack() }
                 )
             }
+        }
         }
     }
 }

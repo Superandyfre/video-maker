@@ -81,6 +81,7 @@ fun VideoMakerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (context as? Activity)?.window ?: return@SideEffect
+            window.decorView.setBackgroundColor(colorScheme.background.toArgb())
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = colorScheme.background.copy(alpha = if (darkTheme) 0.78f else 0.92f).toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
