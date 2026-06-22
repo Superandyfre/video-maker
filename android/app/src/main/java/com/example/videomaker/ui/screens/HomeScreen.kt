@@ -3,10 +3,8 @@ package com.example.videomaker.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -68,10 +66,12 @@ import com.example.videomaker.ui.components.SoftSecondaryButton
 import com.example.videomaker.ui.components.SoftSurfaceCard
 import com.example.videomaker.ui.components.StatusPill
 import com.example.videomaker.ui.components.ToolChip
+import com.example.videomaker.ui.components.rememberVisualGenerationProgress
 import com.example.videomaker.viewmodel.CreateVideoUiState
 import com.example.videomaker.viewmodel.CreateVideoViewModel
 import com.example.videomaker.viewmodel.GenerationInput
 import com.example.videomaker.viewmodel.SettingsViewModel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,12 +259,8 @@ private fun ActiveGenerationButton(
         ),
         label = "active-generation-rotation"
     )
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0, 100) / 100f,
-        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
-        label = "active-generation-progress"
-    )
-    val progressLabel = "${(animatedProgress * 100).toInt().coerceIn(0, 100)}%"
+    val visualProgress = rememberVisualGenerationProgress(progress = progress)
+    val progressLabel = "${visualProgress.roundToInt().coerceIn(0, 100)}%"
     val buttonColors = listOf(
         Color(0xFF2F7CF6),
         Color(0xFF7C4DFF),
@@ -306,7 +302,7 @@ private fun ActiveGenerationButton(
             drawArc(
                 color = Color.White,
                 startAngle = -90f,
-                sweepAngle = 360f * animatedProgress.coerceIn(0f, 1f),
+                sweepAngle = 360f * (visualProgress.coerceIn(0f, 100f) / 100f),
                 useCenter = false,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )

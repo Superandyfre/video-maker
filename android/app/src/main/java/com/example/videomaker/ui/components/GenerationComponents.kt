@@ -2,8 +2,6 @@ package com.example.videomaker.ui.components
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -43,10 +41,9 @@ fun GenerationLiveStatus(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
-    val displayedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0, 100).toFloat(),
-        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
-        label = "displayed-progress"
+    val displayedProgress = rememberVisualGenerationProgress(
+        progress = progress,
+        isRunning = status != "failed"
     )
     val transition = rememberInfiniteTransition(label = "live-status")
     val pulse by transition.animateFloat(
