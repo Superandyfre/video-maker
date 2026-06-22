@@ -4,12 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -103,7 +103,13 @@ fun VideoMakerApp() {
                     ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
                 },
                 exitTransition = {
-                    ExitTransition.None
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth / 5 },
+                        animationSpec = tween(
+                            durationMillis = PageTransitionDurationMillis,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
                 },
                 popEnterTransition = {
                     slideInHorizontally(
@@ -115,7 +121,13 @@ fun VideoMakerApp() {
                     ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
                 },
                 popExitTransition = {
-                    ExitTransition.None
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth / 5 },
+                        animationSpec = tween(
+                            durationMillis = PageTransitionDurationMillis,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
                 }
             ) {
             composable("home") {
