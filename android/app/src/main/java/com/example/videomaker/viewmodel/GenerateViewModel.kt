@@ -43,7 +43,8 @@ data class GenerateUiState(
     val resumeRoute: String? = null,
     val prompt: String? = null,
     val template: String? = null,
-    val mediaCount: Int = 0
+    val mediaCount: Int = 0,
+    val visualProgressStartedAtMillis: Long = 0L
 )
 
 class GenerateViewModel(application: Application) : AndroidViewModel(application) {
@@ -74,6 +75,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         activeJob?.cancel()
         activeJob = viewModelScope.launch {
             activeJobRepository.clear()
+            val visualProgressStartedAtMillis = System.currentTimeMillis()
             _uiState.value = GenerateUiState(
                 isRunning = true,
                 status = "uploading",
@@ -82,16 +84,19 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 message = "准备上传素材",
                 prompt = input.prompt,
                 template = input.template,
-                mediaCount = input.media.size
+                mediaCount = input.media.size,
+                visualProgressStartedAtMillis = visualProgressStartedAtMillis
             )
             runCatching {
                 val settings = repository.settingsFlow.first()
                 val api = ApiClient.create(settings.baseUrl, settings.apiToken)
                 val fileIds = mutableListOf<String>()
                 input.media.forEachIndexed { index, media ->
+                    val nextProgress = ((index.toFloat() / input.media.size) * 20).toInt()
                     _uiState.update {
                         it.copy(
-                            progress = ((index.toFloat() / input.media.size) * 20).toInt(),
+                            progress = nextProgress,
+                            visualProgressStartedAtMillis = visualProgressStartForProgress(it, nextProgress),
                             message = "上传素材 ${index + 1}/${input.media.size}"
                         )
                     }
@@ -100,7 +105,15 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                     fileIds += api.upload(part).fileId
                 }
 
-                _uiState.update { it.copy(progress = 25, status = "queued", phase = "queued", message = "创建生成任务") }
+                _uiState.update {
+                    it.copy(
+                        progress = 25,
+                        visualProgressStartedAtMillis = visualProgressStartForProgress(it, 25),
+                        status = "queued",
+                        phase = "queued",
+                        message = "创建生成任务"
+                    )
+                }
                 val request = SmartJobRequest(
                     template = input.template,
                     prompt = input.prompt,
@@ -111,7 +124,14 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 )
                 val job = api.createSmartJob(request)
                 val queuedState = _uiState.updateAndGet {
-                    it.copy(jobId = job.jobId, status = job.status, phase = "queued", progress = 30, message = "任务已创建")
+                    it.copy(
+                        jobId = job.jobId,
+                        status = job.status,
+                        phase = "queued",
+                        progress = 30,
+                        visualProgressStartedAtMillis = visualProgressStartForProgress(it, 30),
+                        message = "任务已创建"
+                    )
                 }
                 persistState(queuedState)
                 observeExistingJob(job.jobId, immediate = false)
@@ -166,7 +186,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
             resumeRoute = if (persisted.videoFullUrl.isNullOrBlank()) "generate" else "result",
             prompt = persisted.prompt,
             template = persisted.template,
-            mediaCount = persisted.mediaCount
+            mediaCount = persisted.mediaCount,
+            visualProgressStartedAtMillis = persisted.visualProgressStartedAtMillis.ifPositiveOrNow()
         )
         _uiState.value = initialState
         if (persisted.videoFullUrl.isNullOrBlank()) {
@@ -216,6 +237,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         val status = api.jobStatus(jobId)
         val current = _uiState.value
         val stableProgress = nonDecreasingProgress(current.progress, status.progress)
+        val visualProgressStartedAtMillis = visualProgressStartForProgress(current, stableProgress)
         val nextState = when (status.status) {
             "done" -> {
                 val relativeUrl = requireNotNull(status.videoUrl) { "任务完成但没有返回视频地址" }
@@ -232,7 +254,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                     videoFullUrl = fullUrl,
                     prompt = current.prompt,
                     template = current.template,
-                    mediaCount = current.mediaCount
+                    mediaCount = current.mediaCount,
+                    visualProgressStartedAtMillis = current.visualProgressStartedAtMillis.ifPositiveOrNow()
                 )
             }
             "failed" -> GenerateUiState(
@@ -245,7 +268,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 error = status.error ?: "任务生成失败",
                 prompt = current.prompt,
                 template = current.template,
-                mediaCount = current.mediaCount
+                mediaCount = current.mediaCount,
+                visualProgressStartedAtMillis = visualProgressStartedAtMillis
             )
             else -> GenerateUiState(
                 isRunning = true,
@@ -257,7 +281,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 error = status.error,
                 prompt = current.prompt,
                 template = current.template,
-                mediaCount = current.mediaCount
+                mediaCount = current.mediaCount,
+                visualProgressStartedAtMillis = visualProgressStartedAtMillis
             )
         }
         _uiState.value = nextState
@@ -282,13 +307,30 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 videoFullUrl = state.videoFullUrl,
                 prompt = state.prompt,
                 template = state.template,
-                mediaCount = state.mediaCount
+                mediaCount = state.mediaCount,
+                visualProgressStartedAtMillis = state.visualProgressStartedAtMillis.ifPositiveOrNow()
             )
         )
     }
 
     private fun nonDecreasingProgress(currentProgress: Int, reportedProgress: Int): Int {
         return maxOf(currentProgress, reportedProgress).coerceIn(0, 100)
+    }
+
+    private fun visualProgressStartForProgress(
+        current: GenerateUiState,
+        nextProgress: Int,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Long {
+        return if (current.visualProgressStartedAtMillis <= 0L || nextProgress > current.progress) {
+            nowMillis
+        } else {
+            current.visualProgressStartedAtMillis
+        }
+    }
+
+    private fun Long.ifPositiveOrNow(): Long {
+        return if (this > 0L) this else System.currentTimeMillis()
     }
 
     private inline fun <T> MutableStateFlow<T>.updateAndGet(transform: (T) -> T): T {

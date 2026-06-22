@@ -31,6 +31,7 @@ class JobStatusPollWorker(
             } else {
                 nonDecreasingProgress(existing?.progress ?: 0, status.progress)
             }
+            val visualProgressStartedAtMillis = visualProgressStartForProgress(existing, stableProgress)
             activeJobRepository.save(
                 PersistedActiveJob(
                     jobId = status.jobId,
@@ -40,7 +41,11 @@ class JobStatusPollWorker(
                     message = if (status.status == "done") "视频生成成功" else status.message,
                     error = status.error,
                     videoUrl = status.videoUrl,
-                    videoFullUrl = videoFullUrl
+                    videoFullUrl = videoFullUrl,
+                    prompt = existing?.prompt,
+                    template = existing?.template,
+                    mediaCount = existing?.mediaCount ?: 0,
+                    visualProgressStartedAtMillis = visualProgressStartedAtMillis
                 )
             )
             if (status.status != "done" && status.status != "failed") {
@@ -63,5 +68,14 @@ class JobStatusPollWorker(
 
     private fun nonDecreasingProgress(currentProgress: Int, reportedProgress: Int): Int {
         return maxOf(currentProgress, reportedProgress).coerceIn(0, 100)
+    }
+
+    private fun visualProgressStartForProgress(existing: PersistedActiveJob?, nextProgress: Int): Long {
+        val existingStart = existing?.visualProgressStartedAtMillis ?: 0L
+        return if (existing == null || existingStart <= 0L || nextProgress > existing.progress) {
+            System.currentTimeMillis()
+        } else {
+            existingStart
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.example.videomaker.data
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +22,8 @@ data class PersistedActiveJob(
     val videoFullUrl: String?,
     val prompt: String? = null,
     val template: String? = null,
-    val mediaCount: Int = 0
+    val mediaCount: Int = 0,
+    val visualProgressStartedAtMillis: Long = 0L
 )
 
 class ActiveJobRepository(private val context: Context) {
@@ -36,6 +38,7 @@ class ActiveJobRepository(private val context: Context) {
     private val promptKey = stringPreferencesKey("prompt")
     private val templateKey = stringPreferencesKey("template")
     private val mediaCountKey = intPreferencesKey("media_count")
+    private val visualProgressStartedAtMillisKey = longPreferencesKey("visual_progress_started_at_millis")
 
     val activeJobFlow: Flow<PersistedActiveJob?> = context.activeJobDataStore.data.map { preferences ->
         val jobId = preferences[jobIdKey].orEmpty().trim()
@@ -53,7 +56,8 @@ class ActiveJobRepository(private val context: Context) {
                 videoFullUrl = preferences[videoFullUrlKey],
                 prompt = preferences[promptKey],
                 template = preferences[templateKey],
-                mediaCount = preferences[mediaCountKey] ?: 0
+                mediaCount = preferences[mediaCountKey] ?: 0,
+                visualProgressStartedAtMillis = preferences[visualProgressStartedAtMillisKey] ?: 0L
             )
         }
     }
@@ -72,6 +76,11 @@ class ActiveJobRepository(private val context: Context) {
             job.template?.let { preferences[templateKey] = it }
             if (job.mediaCount > 0) {
                 preferences[mediaCountKey] = job.mediaCount
+            }
+            if (job.visualProgressStartedAtMillis > 0L) {
+                preferences[visualProgressStartedAtMillisKey] = job.visualProgressStartedAtMillis
+            } else {
+                preferences.remove(visualProgressStartedAtMillisKey)
             }
         }
     }

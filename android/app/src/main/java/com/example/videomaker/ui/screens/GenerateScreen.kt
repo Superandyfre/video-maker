@@ -56,7 +56,9 @@ fun GenerateScreen(
                 status = state.status,
                 phase = state.phase,
                 progress = state.progress,
-                message = state.message
+                message = state.message,
+                visualProgressStartedAtMillis = state.visualProgressStartedAtMillis,
+                visualProgressKey = state.jobId
             )
             if (!state.prompt.isNullOrBlank()) {
                 SoftSurfaceCard(

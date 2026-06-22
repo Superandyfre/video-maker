@@ -81,6 +81,8 @@ fun HomeScreen(
     createVideoViewModel: CreateVideoViewModel,
     isGenerating: Boolean,
     generationProgress: Int,
+    generationJobId: String?,
+    generationVisualProgressStartedAtMillis: Long,
     onGenerate: (GenerationInput) -> Unit,
     onActiveGeneration: () -> Unit,
     onHistory: () -> Unit,
@@ -147,6 +149,8 @@ fun HomeScreen(
                 onTestConnection = settingsViewModel::testConnection,
                 isGenerating = isGenerating,
                 generationProgress = generationProgress,
+                generationJobId = generationJobId,
+                generationVisualProgressStartedAtMillis = generationVisualProgressStartedAtMillis,
                 onActiveGeneration = onActiveGeneration,
                 onHistory = onHistory,
                 onSettings = onSettings
@@ -217,6 +221,8 @@ private fun HomeTopBar(
     onTestConnection: () -> Unit,
     isGenerating: Boolean,
     generationProgress: Int,
+    generationJobId: String?,
+    generationVisualProgressStartedAtMillis: Long,
     onActiveGeneration: () -> Unit,
     onHistory: () -> Unit,
     onSettings: () -> Unit
@@ -242,6 +248,8 @@ private fun HomeTopBar(
             if (isGenerating) {
                 ActiveGenerationButton(
                     progress = generationProgress,
+                    visualProgressStartedAtMillis = generationVisualProgressStartedAtMillis,
+                    visualProgressKey = generationJobId,
                     onClick = onActiveGeneration
                 )
             } else {
@@ -263,6 +271,8 @@ private fun HomeTopBar(
 @Composable
 private fun ActiveGenerationButton(
     progress: Int,
+    visualProgressStartedAtMillis: Long,
+    visualProgressKey: String?,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(999.dp)
@@ -275,7 +285,11 @@ private fun ActiveGenerationButton(
         ),
         label = "active-generation-rotation"
     )
-    val visualProgress = rememberVisualGenerationProgress(progress = progress)
+    val visualProgress = rememberVisualGenerationProgress(
+        progress = progress,
+        visualProgressStartedAtMillis = visualProgressStartedAtMillis,
+        visualProgressKey = visualProgressKey
+    )
     val progressLabel = "${visualProgress.roundToInt().coerceIn(0, 100)}%"
     val buttonColors = listOf(
         Color(0xFF2F7CF6),

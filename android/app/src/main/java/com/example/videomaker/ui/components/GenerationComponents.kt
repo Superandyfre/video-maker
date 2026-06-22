@@ -38,12 +38,16 @@ fun GenerationLiveStatus(
     phase: String?,
     progress: Int,
     message: String,
+    visualProgressStartedAtMillis: Long = 0L,
+    visualProgressKey: String? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
     val displayedProgress = rememberVisualGenerationProgress(
         progress = progress,
-        isRunning = status != "failed"
+        isRunning = status != "failed",
+        visualProgressStartedAtMillis = visualProgressStartedAtMillis,
+        visualProgressKey = visualProgressKey
     )
     val transition = rememberInfiniteTransition(label = "live-status")
     val pulse by transition.animateFloat(

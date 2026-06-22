@@ -112,6 +112,8 @@ fun VideoMakerApp() {
                     createVideoViewModel = createVideoViewModel,
                     isGenerating = generateState.isRunning,
                     generationProgress = generateState.progress,
+                    generationJobId = generateState.jobId,
+                    generationVisualProgressStartedAtMillis = generateState.visualProgressStartedAtMillis,
                     onGenerate = { input ->
                         generateViewModel.start(input)
                         navController.navigate("generate")
