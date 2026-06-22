@@ -4,8 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
@@ -99,7 +98,7 @@ fun VideoMakerApp() {
                         initialOffsetX = { fullWidth -> fullWidth / 5 },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearOutSlowInEasing
+                            easing = LinearEasing
                         )
                     ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
                 },
@@ -108,7 +107,7 @@ fun VideoMakerApp() {
                         targetOffsetX = { fullWidth -> -fullWidth / 5 },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = FastOutLinearInEasing
+                            easing = LinearEasing
                         )
                     )
                 },
@@ -117,7 +116,7 @@ fun VideoMakerApp() {
                         initialOffsetX = { fullWidth -> -fullWidth / 5 },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = LinearOutSlowInEasing
+                            easing = LinearEasing
                         )
                     ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
                 },
@@ -126,7 +125,7 @@ fun VideoMakerApp() {
                         targetOffsetX = { fullWidth -> fullWidth / 5 },
                         animationSpec = tween(
                             durationMillis = PageTransitionDurationMillis,
-                            easing = FastOutLinearInEasing
+                            easing = LinearEasing
                         )
                     )
                 }
