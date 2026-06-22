@@ -5,14 +5,12 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
@@ -38,7 +35,6 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -58,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.DropdownSelector
@@ -252,44 +249,34 @@ private fun ActiveGenerationButton(
     progress: Int,
     onClick: () -> Unit
 ) {
-    val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(999.dp)
     val infiniteTransition = rememberInfiniteTransition(label = "active-generation")
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2_800, easing = LinearEasing)
+            animation = tween(durationMillis = 3_600, easing = LinearEasing)
         ),
         label = "active-generation-rotation"
-    )
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.58f,
-        targetValue = 0.96f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "active-generation-glow"
     )
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0, 100) / 100f,
         animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
         label = "active-generation-progress"
     )
-    val geminiColors = listOf(
-        Color(0xFF4285F4),
-        Color(0xFF9B72CB),
-        Color(0xFFFF6DAD),
-        Color(0xFF34A853),
-        Color(0xFF4285F4)
+    val progressLabel = "${(animatedProgress * 100).toInt().coerceIn(0, 100)}%"
+    val buttonColors = listOf(
+        Color(0xFF2F7CF6),
+        Color(0xFF7C4DFF),
+        Color(0xFFFF4FA3),
+        Color(0xFFFFB24C),
+        Color(0xFF2F7CF6)
     )
 
     Box(
         modifier = Modifier
             .size(46.dp)
             .clip(shape)
-            .background(colors.surface.copy(alpha = 0.74f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -299,46 +286,36 @@ private fun ActiveGenerationButton(
                 .rotate(rotation)
         ) {
             drawCircle(
-                brush = Brush.sweepGradient(geminiColors),
-                radius = size.minDimension / 2f,
-                alpha = glowAlpha
+                brush = Brush.sweepGradient(buttonColors),
+                radius = size.minDimension / 2f
             )
         }
-        Box(
+        Canvas(
             modifier = Modifier
-                .size(38.dp)
-                .clip(shape)
-                .background(colors.surface.copy(alpha = 0.92f)),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .padding(4.dp)
         ) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(5.dp)
-            ) {
-                val strokeWidth = 3.dp.toPx()
-                drawArc(
-                    color = colors.outline.copy(alpha = 0.16f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                )
-                drawArc(
-                    brush = Brush.sweepGradient(geminiColors),
-                    startAngle = -90f,
-                    sweepAngle = 360f * animatedProgress.coerceIn(0f, 1f),
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                )
-            }
-            Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
-                contentDescription = "正在生成",
-                tint = colors.primary,
-                modifier = Modifier.size(17.dp)
+            val strokeWidth = 3.dp.toPx()
+            drawArc(
+                color = Color.White.copy(alpha = 0.28f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            drawArc(
+                color = Color.White,
+                startAngle = -90f,
+                sweepAngle = 360f * animatedProgress.coerceIn(0f, 1f),
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
         }
+        Text(
+            text = progressLabel,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = Color.White
+        )
     }
 }
 
