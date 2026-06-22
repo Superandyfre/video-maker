@@ -254,13 +254,23 @@ fun StatusPill(
     text: String,
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f),
-    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer
+    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null
 ) {
+    val shape = RoundedCornerShape(999.dp)
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(enabled = enabled, onClick = onClick)
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(shape)
             .background(containerColor)
-            .border(1.dp, contentColor.copy(alpha = 0.08f), RoundedCornerShape(999.dp))
+            .border(1.dp, contentColor.copy(alpha = 0.08f), shape)
+            .then(clickModifier)
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
         Text(

@@ -3,7 +3,6 @@ package com.example.videomaker.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,10 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
@@ -112,8 +112,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             HomeTopBar(
@@ -134,30 +133,39 @@ fun HomeScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            SummaryChips(
-                state = createState,
-                onOpenTools = { showTools = true }
-            )
-            createState.error?.takeIf { settingsState.baseUrl.isNotBlank() }?.let { ErrorCard(it) }
-            if (settingsState.baseUrl.isBlank()) {
-                InfoCard("先在设置中填写后端 Base URL 和 API Token，再开始生成。")
-            }
-            PromptComposer(
-                prompt = createState.prompt,
-                selectedMedia = createState.selectedMedia,
-                canGenerate = createVideoViewModel.buildGenerationInput() != null && settingsState.baseUrl.isNotBlank(),
-                isBusy = isGenerating,
-                onPromptChange = createVideoViewModel::updatePrompt,
-                onAddMedia = {
-                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                },
-                onRemoveMedia = createVideoViewModel::removeMedia,
-                onOpenTools = { showTools = true },
-                onGenerate = {
-                    createVideoViewModel.buildGenerationInput()?.let(onGenerate)
+            Spacer(modifier = Modifier.weight(1f))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SummaryChips(
+                    state = createState,
+                    onOpenTools = { showTools = true }
+                )
+                createState.error?.takeIf { settingsState.baseUrl.isNotBlank() }?.let { ErrorCard(it) }
+                settingsState.error?.let { ErrorCard(it) }
+                if (settingsState.baseUrl.isBlank()) {
+                    InfoCard("先在设置中填写后端 Base URL 和 API Token，再开始生成。")
                 }
-            )
-            settingsState.error?.let { ErrorCard(it) }
+                PromptComposer(
+                    prompt = createState.prompt,
+                    selectedMedia = createState.selectedMedia,
+                    canGenerate = createVideoViewModel.buildGenerationInput() != null && settingsState.baseUrl.isNotBlank(),
+                    isBusy = isGenerating,
+                    onPromptChange = createVideoViewModel::updatePrompt,
+                    onAddMedia = {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    },
+                    onRemoveMedia = createVideoViewModel::removeMedia,
+                    onOpenTools = { showTools = true },
+                    onGenerate = {
+                        createVideoViewModel.buildGenerationInput()?.let(onGenerate)
+                    }
+                )
+            }
         }
     }
 }
@@ -179,16 +187,14 @@ private fun HomeTopBar(
     ) {
         StatusPill(
             text = connectionLabel,
-            modifier = Modifier.clickable(
-                enabled = canTestConnection,
-                onClick = onTestConnection
-            ),
             containerColor = if (connected) {
                 colors.tertiaryContainer.copy(alpha = 0.84f)
             } else {
                 colors.primaryContainer.copy(alpha = 0.72f)
             },
-            contentColor = if (connected) colors.onTertiaryContainer else colors.onPrimaryContainer
+            contentColor = if (connected) colors.onTertiaryContainer else colors.onPrimaryContainer,
+            enabled = canTestConnection,
+            onClick = onTestConnection
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             IconActionButton(

@@ -24,13 +24,19 @@ class JobStatusPollWorker(
         return runCatching {
             val api = ApiClient.create(settings.baseUrl, settings.apiToken)
             val status = api.jobStatus(jobId)
+            val existing = activeJobRepository.activeJobFlow.first()
             val videoFullUrl = status.videoUrl?.let { ApiClient.buildAbsoluteUrl(settings.baseUrl, it) }
+            val stableProgress = if (status.status == "done") {
+                100
+            } else {
+                nonDecreasingProgress(existing?.progress ?: 0, status.progress)
+            }
             activeJobRepository.save(
                 PersistedActiveJob(
                     jobId = status.jobId,
                     status = status.status,
                     phase = status.phase,
-                    progress = if (status.status == "done") 100 else status.progress,
+                    progress = stableProgress,
                     message = if (status.status == "done") "视频生成成功" else status.message,
                     error = status.error,
                     videoUrl = status.videoUrl,
@@ -53,5 +59,9 @@ class JobStatusPollWorker(
             }
             Result.retry()
         }
+    }
+
+    private fun nonDecreasingProgress(currentProgress: Int, reportedProgress: Int): Int {
+        return maxOf(currentProgress, reportedProgress).coerceIn(0, 100)
     }
 }

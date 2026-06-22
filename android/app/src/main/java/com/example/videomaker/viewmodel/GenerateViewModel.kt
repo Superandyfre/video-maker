@@ -215,6 +215,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
     ): Boolean {
         val status = api.jobStatus(jobId)
         val current = _uiState.value
+        val stableProgress = nonDecreasingProgress(current.progress, status.progress)
         val nextState = when (status.status) {
             "done" -> {
                 val relativeUrl = requireNotNull(status.videoUrl) { "任务完成但没有返回视频地址" }
@@ -239,7 +240,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 jobId = status.jobId,
                 status = status.status,
                 phase = status.phase ?: "failed",
-                progress = status.progress,
+                progress = stableProgress,
                 message = "生成失败",
                 error = status.error ?: "任务生成失败",
                 prompt = current.prompt,
@@ -251,7 +252,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 jobId = status.jobId,
                 status = status.status,
                 phase = status.phase,
-                progress = status.progress,
+                progress = stableProgress,
                 message = status.message,
                 error = status.error,
                 prompt = current.prompt,
@@ -284,6 +285,10 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 mediaCount = state.mediaCount
             )
         )
+    }
+
+    private fun nonDecreasingProgress(currentProgress: Int, reportedProgress: Int): Int {
+        return maxOf(currentProgress, reportedProgress).coerceIn(0, 100)
     }
 
     private inline fun <T> MutableStateFlow<T>.updateAndGet(transform: (T) -> T): T {

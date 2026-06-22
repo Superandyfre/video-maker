@@ -2,6 +2,8 @@ package com.example.videomaker.ui.components
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 @Composable
 fun GenerationLiveStatus(
@@ -40,6 +43,11 @@ fun GenerationLiveStatus(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
+    val displayedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0, 100).toFloat(),
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "displayed-progress"
+    )
     val transition = rememberInfiniteTransition(label = "live-status")
     val pulse by transition.animateFloat(
         initialValue = 0.45f,
@@ -94,12 +102,12 @@ fun GenerationLiveStatus(
                     }
                 }
                 Text(
-                    text = "${progress.coerceIn(0, 100)}%",
+                    text = "${displayedProgress.roundToInt().coerceIn(0, 100)}%",
                     style = MaterialTheme.typography.displaySmall,
                     color = colors.onSurface
                 )
                 LinearProgressIndicator(
-                    progress = { progress.coerceIn(0, 100) / 100f },
+                    progress = { displayedProgress.coerceIn(0f, 100f) / 100f },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
