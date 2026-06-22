@@ -111,9 +111,15 @@ fun VideoMakerApp() {
                     settingsViewModel = settingsViewModel,
                     createVideoViewModel = createVideoViewModel,
                     isGenerating = generateState.isRunning,
+                    generationProgress = generateState.progress,
                     onGenerate = { input ->
                         generateViewModel.start(input)
                         navController.navigate("generate")
+                    },
+                    onActiveGeneration = {
+                        navController.navigate("generate") {
+                            launchSingleTop = true
+                        }
                     },
                     onHistory = { navController.navigate("history") },
                     onSettings = { navController.navigate("settings") }

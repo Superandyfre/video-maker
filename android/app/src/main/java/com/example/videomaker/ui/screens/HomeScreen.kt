@@ -3,8 +3,20 @@ package com.example.videomaker.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,9 +26,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
@@ -24,6 +38,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -37,6 +52,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.example.videomaker.ui.components.AppScreenScaffold
 import com.example.videomaker.ui.components.DropdownSelector
@@ -61,7 +82,9 @@ fun HomeScreen(
     settingsViewModel: SettingsViewModel,
     createVideoViewModel: CreateVideoViewModel,
     isGenerating: Boolean,
+    generationProgress: Int,
     onGenerate: (GenerationInput) -> Unit,
+    onActiveGeneration: () -> Unit,
     onHistory: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -124,6 +147,9 @@ fun HomeScreen(
                 connected = settingsState.health != null,
                 canTestConnection = settingsState.baseUrl.isNotBlank() && !settingsState.isTesting,
                 onTestConnection = settingsViewModel::testConnection,
+                isGenerating = isGenerating,
+                generationProgress = generationProgress,
+                onActiveGeneration = onActiveGeneration,
                 onHistory = onHistory,
                 onSettings = onSettings
             )
@@ -176,6 +202,9 @@ private fun HomeTopBar(
     connected: Boolean,
     canTestConnection: Boolean,
     onTestConnection: () -> Unit,
+    isGenerating: Boolean,
+    generationProgress: Int,
+    onActiveGeneration: () -> Unit,
     onHistory: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -197,15 +226,117 @@ private fun HomeTopBar(
             onClick = onTestConnection
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconActionButton(
-                icon = Icons.Rounded.History,
-                contentDescription = "历史记录",
-                onClick = onHistory
-            )
+            if (isGenerating) {
+                ActiveGenerationButton(
+                    progress = generationProgress,
+                    onClick = onActiveGeneration
+                )
+            } else {
+                IconActionButton(
+                    icon = Icons.Rounded.History,
+                    contentDescription = "历史记录",
+                    onClick = onHistory
+                )
+            }
             IconActionButton(
                 icon = Icons.Rounded.Settings,
                 contentDescription = "设置",
                 onClick = onSettings
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveGenerationButton(
+    progress: Int,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(999.dp)
+    val infiniteTransition = rememberInfiniteTransition(label = "active-generation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2_800, easing = LinearEasing)
+        ),
+        label = "active-generation-rotation"
+    )
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.58f,
+        targetValue = 0.96f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "active-generation-glow"
+    )
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0, 100) / 100f,
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "active-generation-progress"
+    )
+    val geminiColors = listOf(
+        Color(0xFF4285F4),
+        Color(0xFF9B72CB),
+        Color(0xFFFF6DAD),
+        Color(0xFF34A853),
+        Color(0xFF4285F4)
+    )
+
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .clip(shape)
+            .background(colors.surface.copy(alpha = 0.74f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .rotate(rotation)
+        ) {
+            drawCircle(
+                brush = Brush.sweepGradient(geminiColors),
+                radius = size.minDimension / 2f,
+                alpha = glowAlpha
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(shape)
+                .background(colors.surface.copy(alpha = 0.92f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(5.dp)
+            ) {
+                val strokeWidth = 3.dp.toPx()
+                drawArc(
+                    color = colors.outline.copy(alpha = 0.16f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+                drawArc(
+                    brush = Brush.sweepGradient(geminiColors),
+                    startAngle = -90f,
+                    sweepAngle = 360f * animatedProgress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = "正在生成",
+                tint = colors.primary,
+                modifier = Modifier.size(17.dp)
             )
         }
     }
