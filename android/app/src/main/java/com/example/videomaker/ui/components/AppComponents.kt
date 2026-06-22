@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -87,8 +87,8 @@ fun AppGradientBackground(
     content: @Composable BoxScope.() -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
-    val isDark = isSystemInDarkTheme()
     val base = colors.background
+    val isDark = base.luminance() < 0.5f
     val surfaceBlend = if (isDark) {
         lerp(base, colors.surface, 0.22f)
     } else {

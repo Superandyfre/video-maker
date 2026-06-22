@@ -8,7 +8,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,13 +65,13 @@ fun PromptComposer(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
-    val isDark = isSystemInDarkTheme()
+    val isDark = colors.background.luminance() < 0.5f
     val haptic = LocalHapticFeedback.current
     val composerShape = RoundedCornerShape(42.dp)
     val composerColor = if (isDark) {
-        Color(0xE61A1B22)
+        colors.surface.copy(alpha = 0.92f)
     } else {
-        Color.White.copy(alpha = 0.94f)
+        colors.surface.copy(alpha = 0.94f)
     }
 
     Surface(
