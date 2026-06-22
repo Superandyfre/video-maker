@@ -249,7 +249,10 @@ private fun HomeTopBar(
             enabled = canTestConnection,
             onClick = onTestConnection
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (isGenerating) {
                 ActiveGenerationButton(
                     progress = generationProgress,
@@ -299,7 +302,7 @@ private fun ActiveGenerationButton(
 
     Box(
         modifier = Modifier
-            .size(52.dp)
+            .size(46.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -308,7 +311,7 @@ private fun ActiveGenerationButton(
                 .fillMaxSize()
                 .rotate(rotation)
         ) {
-            val inset = 6.dp.toPx()
+            val inset = 5.dp.toPx()
             val diameter = size.minDimension - inset * 2f
             val arcBounds = Size(diameter, diameter)
             val arcTopLeft = Offset(
@@ -335,7 +338,7 @@ private fun ActiveGenerationButton(
                 topLeft = arcTopLeft,
                 size = arcBounds,
                 alpha = 0.22f,
-                style = Stroke(width = 13.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
             )
             drawArc(
                 brush = arcBrush,
@@ -350,7 +353,7 @@ private fun ActiveGenerationButton(
         }
         Box(
             modifier = Modifier
-                .size(45.dp)
+                .size(40.dp)
                 .shadow(elevation = 8.dp, shape = shape, clip = false)
                 .clip(shape)
                 .background(Color.White)

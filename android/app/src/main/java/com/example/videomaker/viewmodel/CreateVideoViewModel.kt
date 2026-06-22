@@ -11,12 +11,14 @@ import com.example.videomaker.data.TemplateInfo
 import com.example.videomaker.data.VoiceInfo
 import com.example.videomaker.util.FileUtils
 import com.example.videomaker.util.SelectedMedia
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class CreateVideoUiState(
     val templates: List<TemplateInfo> = emptyList(),
@@ -125,45 +127,63 @@ class CreateVideoViewModel(application: Application) : AndroidViewModel(applicat
 
     fun addMedia(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        val current = _uiState.value.selectedMedia
-        val capabilities = _uiState.value.capabilities
-        val maxItems = capabilities.maxJobAssets.coerceAtLeast(1)
-        if (current.size >= maxItems) {
-            _uiState.update { it.copy(error = "最多只能选择 $maxItems 个素材。") }
-            return
-        }
-        val accepted = mutableListOf<SelectedMedia>()
-        var rejectedMessage: String? = null
-        for (uri in uris) {
-            if (current.size + accepted.size >= maxItems) {
-                rejectedMessage = "最多只能选择 $maxItems 个素材，已忽略多余文件。"
-                break
+        viewModelScope.launch {
+            val current = _uiState.value.selectedMedia
+            val capabilities = _uiState.value.capabilities
+            val maxItems = capabilities.maxJobAssets.coerceAtLeast(1)
+            if (current.size >= maxItems) {
+                _uiState.update { it.copy(error = "最多只能选择 $maxItems 个素材。") }
+                return@launch
             }
-            val media = runCatching { FileUtils.describe(appContext, uri) }.getOrElse {
-                rejectedMessage = "无法读取部分素材，已忽略。"
-                null
-            } ?: continue
-            val isSupportedType = media.mimeType in capabilities.supportedImageMimeTypes ||
-                media.mimeType in capabilities.supportedVideoMimeTypes
-            if (!isSupportedType) {
-                rejectedMessage = "不支持的素材类型：${media.mimeType}"
-                continue
+            val accepted = mutableListOf<SelectedMedia>()
+            var rejectedMessage: String? = null
+            for (uri in uris) {
+                if (current.size + accepted.size >= maxItems) {
+                    rejectedMessage = "最多只能选择 $maxItems 个素材，已忽略多余文件。"
+                    break
+                }
+                val described = runCatching {
+                    withContext(Dispatchers.IO) { FileUtils.describe(appContext, uri) }
+                }.getOrElse {
+                    rejectedMessage = "无法读取部分素材，已忽略。"
+                    null
+                } ?: continue
+                val isSupportedType = described.mimeType in capabilities.supportedImageMimeTypes ||
+                    described.mimeType in capabilities.supportedVideoMimeTypes
+                if (!isSupportedType) {
+                    rejectedMessage = "不支持的素材类型：${described.mimeType}"
+                    continue
+                }
+                if (described.sizeBytes != null && described.sizeBytes > capabilities.maxUploadSizeBytes) {
+                    rejectedMessage = "素材超过 ${capabilities.maxUploadSizeMb}MB，已忽略。"
+                    continue
+                }
+                val staged = runCatching {
+                    withContext(Dispatchers.IO) { FileUtils.stageForUpload(appContext, described) }
+                }.getOrElse {
+                    rejectedMessage = "无法暂存部分素材，已忽略。"
+                    null
+                } ?: continue
+                if (staged.sizeBytes != null && staged.sizeBytes > capabilities.maxUploadSizeBytes) {
+                    FileUtils.deleteIfStaged(appContext, staged)
+                    rejectedMessage = "素材超过 ${capabilities.maxUploadSizeMb}MB，已忽略。"
+                    continue
+                }
+                accepted += staged
             }
-            if (media.sizeBytes != null && media.sizeBytes > capabilities.maxUploadSizeBytes) {
-                rejectedMessage = "素材超过 ${capabilities.maxUploadSizeMb}MB，已忽略。"
-                continue
+            _uiState.update {
+                it.copy(
+                    selectedMedia = current + accepted,
+                    error = rejectedMessage
+                )
             }
-            accepted += media
-        }
-        _uiState.update {
-            it.copy(
-                selectedMedia = current + accepted,
-                error = rejectedMessage
-            )
         }
     }
 
     fun removeMedia(index: Int) {
+        _uiState.value.selectedMedia.getOrNull(index)?.let { media ->
+            FileUtils.deleteIfStaged(appContext, media)
+        }
         _uiState.update { state ->
             state.copy(selectedMedia = state.selectedMedia.filterIndexed { i, _ -> i != index })
         }

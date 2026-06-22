@@ -3,23 +3,22 @@ package com.example.videomaker.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.videomaker.background.GenerationUploadScheduler
 import com.example.videomaker.background.JobPollingScheduler
 import com.example.videomaker.data.ActiveJobRepository
-import com.example.videomaker.data.ApiClient
+import com.example.videomaker.data.PendingGenerationRepository
+import com.example.videomaker.data.PendingGenerationRequest
+import com.example.videomaker.data.PendingUploadMedia
 import com.example.videomaker.data.PersistedActiveJob
-import com.example.videomaker.data.SettingsRepository
-import com.example.videomaker.data.SmartJobRequest
-import com.example.videomaker.data.VoiceConfig
 import com.example.videomaker.util.FileUtils
 import com.example.videomaker.util.SelectedMedia
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class GenerationInput(
     val prompt: String,
@@ -49,35 +48,49 @@ data class GenerateUiState(
 
 class GenerateViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = application.applicationContext
-    private val repository = SettingsRepository(appContext)
     private val activeJobRepository = ActiveJobRepository(appContext)
+    private val pendingGenerationRepository = PendingGenerationRepository(appContext)
     private val _uiState = MutableStateFlow(GenerateUiState())
     val uiState: StateFlow<GenerateUiState> = _uiState.asStateFlow()
     private var lastInput: GenerationInput? = null
-    private var activeJob: Job? = null
+    private var activeJobFlowInitialized = false
 
     init {
         viewModelScope.launch {
-            restorePersistedJob()
+            activeJobRepository.activeJobFlow.collect { persisted ->
+                val shouldResume = !activeJobFlowInitialized && persisted != null
+                activeJobFlowInitialized = true
+                if (shouldResume && persisted.status.isActiveStatus()) {
+                    if (persisted.jobId.startsWith("local-")) {
+                        GenerationUploadScheduler.schedule(appContext, persisted.jobId)
+                    } else {
+                        JobPollingScheduler.schedule(appContext, persisted.jobId, delaySeconds = 2)
+                    }
+                }
+                _uiState.value = persisted?.toUiState(shouldResume) ?: GenerateUiState()
+            }
         }
     }
 
     override fun onCleared() {
         val state = _uiState.value
-        if (state.isRunning && !state.jobId.isNullOrBlank()) {
-            JobPollingScheduler.schedule(appContext, state.jobId, delaySeconds = 10)
+        val jobId = state.jobId.orEmpty()
+        if (state.isRunning && jobId.isNotBlank() && !jobId.startsWith("local-")) {
+            JobPollingScheduler.schedule(appContext, jobId, delaySeconds = 10)
         }
         super.onCleared()
     }
 
     fun start(input: GenerationInput) {
         lastInput = input
-        activeJob?.cancel()
-        activeJob = viewModelScope.launch {
+        viewModelScope.launch {
+            val localJobId = "local-${UUID.randomUUID()}"
+            val request = input.toPendingGenerationRequest(localJobId)
             activeJobRepository.clear()
-            val visualProgressStartedAtMillis = System.currentTimeMillis()
-            _uiState.value = GenerateUiState(
+            pendingGenerationRepository.save(request)
+            val initialState = GenerateUiState(
                 isRunning = true,
+                jobId = localJobId,
                 status = "uploading",
                 phase = "uploading",
                 progress = 0,
@@ -85,73 +98,37 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 prompt = input.prompt,
                 template = input.template,
                 mediaCount = input.media.size,
-                visualProgressStartedAtMillis = visualProgressStartedAtMillis
+                visualProgressStartedAtMillis = System.currentTimeMillis()
             )
-            runCatching {
-                val settings = repository.settingsFlow.first()
-                val api = ApiClient.create(settings.baseUrl, settings.apiToken)
-                val fileIds = mutableListOf<String>()
-                input.media.forEachIndexed { index, media ->
-                    val nextProgress = ((index.toFloat() / input.media.size) * 20).toInt()
-                    _uiState.update {
-                        it.copy(
-                            progress = nextProgress,
-                            visualProgressStartedAtMillis = visualProgressStartForProgress(it, nextProgress),
-                            message = "上传素材 ${index + 1}/${input.media.size}"
-                        )
-                    }
-                    persistState(_uiState.value)
-                    val part = FileUtils.toMultipart(appContext, media)
-                    fileIds += api.upload(part).fileId
-                }
-
-                _uiState.update {
-                    it.copy(
-                        progress = 25,
-                        visualProgressStartedAtMillis = visualProgressStartForProgress(it, 25),
-                        status = "queued",
-                        phase = "queued",
-                        message = "创建生成任务"
-                    )
-                }
-                val request = SmartJobRequest(
-                    template = input.template,
-                    prompt = input.prompt,
-                    assets = fileIds,
-                    voice = VoiceConfig(speaker = input.voice),
-                    resolution = input.resolution,
-                    autoBgm = input.autoBgm
-                )
-                val job = api.createSmartJob(request)
-                val queuedState = _uiState.updateAndGet {
-                    it.copy(
-                        jobId = job.jobId,
-                        status = job.status,
-                        phase = "queued",
-                        progress = 30,
-                        visualProgressStartedAtMillis = visualProgressStartForProgress(it, 30),
-                        message = "任务已创建"
-                    )
-                }
-                persistState(queuedState)
-                observeExistingJob(job.jobId, immediate = false)
-            }.onFailure { error ->
-                val failedState = _uiState.updateAndGet {
-                    it.copy(
-                        isRunning = false,
-                        status = "failed",
-                        phase = "failed",
-                        error = ApiClient.toUserMessage(error),
-                        message = "生成失败"
-                    )
-                }
-                persistState(failedState)
-            }
+            _uiState.value = initialState
+            persistState(initialState)
+            GenerationUploadScheduler.schedule(appContext, localJobId)
         }
     }
 
     fun retry() {
-        lastInput?.let { start(it) }
+        viewModelScope.launch {
+            val pending = pendingGenerationRepository.pendingRequestFlow.first()
+            if (pending != null) {
+                val state = GenerateUiState(
+                    isRunning = true,
+                    jobId = pending.localJobId,
+                    status = "uploading",
+                    phase = "uploading",
+                    progress = pending.uploadedProgress(),
+                    message = "准备重新上传素材",
+                    prompt = pending.prompt,
+                    template = pending.template,
+                    mediaCount = pending.media.size,
+                    visualProgressStartedAtMillis = System.currentTimeMillis()
+                )
+                _uiState.value = state
+                persistState(state)
+                GenerationUploadScheduler.schedule(appContext, pending.localJobId)
+                return@launch
+            }
+            lastInput?.let { start(it) }
+        }
     }
 
     fun consumeResumeRoute() {
@@ -160,137 +137,19 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
 
     fun clearPersistedState(resetUi: Boolean = true) {
         val existingJobId = _uiState.value.jobId
-        activeJob?.cancel()
-        activeJob = null
+        GenerationUploadScheduler.cancel(appContext, existingJobId)
+        JobPollingScheduler.cancel(appContext, existingJobId)
         viewModelScope.launch {
+            val pending = pendingGenerationRepository.pendingRequestFlow.first()
+            if (pending != null && (existingJobId.isNullOrBlank() || pending.localJobId == existingJobId)) {
+                pending.media.forEach { media -> FileUtils.deleteStagedUri(appContext, media.uri) }
+                pendingGenerationRepository.clear(pending.localJobId)
+            }
             activeJobRepository.clear()
         }
-        JobPollingScheduler.cancel(appContext, existingJobId)
         if (resetUi) {
             _uiState.value = GenerateUiState()
         }
-    }
-
-    private suspend fun restorePersistedJob() {
-        val persisted = activeJobRepository.activeJobFlow.first() ?: return
-        val initialState = GenerateUiState(
-            isRunning = persisted.status == "queued" || persisted.status == "running",
-            jobId = persisted.jobId,
-            status = persisted.status,
-            phase = persisted.phase,
-            progress = persisted.progress,
-            message = persisted.message.ifBlank { "恢复任务状态" },
-            error = persisted.error,
-            videoUrl = persisted.videoUrl,
-            videoFullUrl = persisted.videoFullUrl,
-            resumeRoute = if (persisted.videoFullUrl.isNullOrBlank()) "generate" else "result",
-            prompt = persisted.prompt,
-            template = persisted.template,
-            mediaCount = persisted.mediaCount,
-            visualProgressStartedAtMillis = persisted.visualProgressStartedAtMillis.ifPositiveOrNow()
-        )
-        _uiState.value = initialState
-        if (persisted.videoFullUrl.isNullOrBlank()) {
-            activeJob?.cancel()
-            activeJob = viewModelScope.launch {
-                runCatching {
-                    observeExistingJob(persisted.jobId, immediate = true)
-                }.onFailure { error ->
-                    val failedState = _uiState.updateAndGet {
-                        it.copy(
-                            isRunning = false,
-                            status = if (it.status == "idle") "failed" else it.status,
-                            phase = "failed",
-                            error = ApiClient.toUserMessage(error),
-                            message = "恢复任务失败"
-                        )
-                    }
-                    persistState(failedState)
-                }
-            }
-        }
-    }
-
-    private suspend fun observeExistingJob(jobId: String, immediate: Boolean) {
-        val settings = repository.settingsFlow.first()
-        val api = ApiClient.create(settings.baseUrl, settings.apiToken)
-        if (immediate) {
-            val terminal = fetchJobStatus(api, settings.baseUrl, jobId)
-            if (terminal) {
-                return
-            }
-        }
-        while (true) {
-            delay(2_000)
-            val terminal = fetchJobStatus(api, settings.baseUrl, jobId)
-            if (terminal) {
-                return
-            }
-        }
-    }
-
-    private suspend fun fetchJobStatus(
-        api: com.example.videomaker.data.ApiService,
-        baseUrl: String,
-        jobId: String
-    ): Boolean {
-        val status = api.jobStatus(jobId)
-        val current = _uiState.value
-        val stableProgress = nonDecreasingProgress(current.progress, status.progress)
-        val visualProgressStartedAtMillis = visualProgressStartForProgress(current, stableProgress)
-        val nextState = when (status.status) {
-            "done" -> {
-                val relativeUrl = requireNotNull(status.videoUrl) { "任务完成但没有返回视频地址" }
-                val fullUrl = ApiClient.buildAbsoluteUrl(baseUrl, relativeUrl)
-                GenerateUiState(
-                    isRunning = false,
-                    jobId = status.jobId,
-                    status = status.status,
-                    phase = status.phase ?: "done",
-                    progress = 100,
-                    message = "视频生成成功",
-                    error = status.error,
-                    videoUrl = relativeUrl,
-                    videoFullUrl = fullUrl,
-                    prompt = current.prompt,
-                    template = current.template,
-                    mediaCount = current.mediaCount,
-                    visualProgressStartedAtMillis = current.visualProgressStartedAtMillis.ifPositiveOrNow()
-                )
-            }
-            "failed" -> GenerateUiState(
-                isRunning = false,
-                jobId = status.jobId,
-                status = status.status,
-                phase = status.phase ?: "failed",
-                progress = stableProgress,
-                message = "生成失败",
-                error = status.error ?: "任务生成失败",
-                prompt = current.prompt,
-                template = current.template,
-                mediaCount = current.mediaCount,
-                visualProgressStartedAtMillis = visualProgressStartedAtMillis
-            )
-            else -> GenerateUiState(
-                isRunning = true,
-                jobId = status.jobId,
-                status = status.status,
-                phase = status.phase,
-                progress = stableProgress,
-                message = status.message,
-                error = status.error,
-                prompt = current.prompt,
-                template = current.template,
-                mediaCount = current.mediaCount,
-                visualProgressStartedAtMillis = visualProgressStartedAtMillis
-            )
-        }
-        _uiState.value = nextState
-        persistState(nextState)
-        if (status.status == "done" || status.status == "failed") {
-            JobPollingScheduler.cancel(appContext, status.jobId)
-        }
-        return status.status == "done" || status.status == "failed"
     }
 
     private suspend fun persistState(state: GenerateUiState) {
@@ -313,29 +172,61 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    private fun nonDecreasingProgress(currentProgress: Int, reportedProgress: Int): Int {
-        return maxOf(currentProgress, reportedProgress).coerceIn(0, 100)
+    private fun GenerationInput.toPendingGenerationRequest(localJobId: String): PendingGenerationRequest {
+        return PendingGenerationRequest(
+            localJobId = localJobId,
+            prompt = prompt,
+            template = template,
+            voice = voice,
+            resolution = resolution,
+            autoBgm = autoBgm,
+            media = media.map {
+                PendingUploadMedia(
+                    uri = it.uri.toString(),
+                    displayName = it.displayName,
+                    mimeType = it.mimeType,
+                    sizeBytes = it.sizeBytes
+                )
+            },
+            createdAtMillis = System.currentTimeMillis()
+        )
     }
 
-    private fun visualProgressStartForProgress(
-        current: GenerateUiState,
-        nextProgress: Int,
-        nowMillis: Long = System.currentTimeMillis()
-    ): Long {
-        return if (current.visualProgressStartedAtMillis <= 0L || nextProgress > current.progress) {
-            nowMillis
-        } else {
-            current.visualProgressStartedAtMillis
-        }
+    private fun PersistedActiveJob.toUiState(includeResumeRoute: Boolean): GenerateUiState {
+        return GenerateUiState(
+            isRunning = status.isActiveStatus(),
+            jobId = jobId,
+            status = status,
+            phase = phase,
+            progress = progress,
+            message = message.ifBlank { "恢复任务状态" },
+            error = error,
+            videoUrl = videoUrl,
+            videoFullUrl = videoFullUrl,
+            resumeRoute = if (includeResumeRoute) {
+                if (videoFullUrl.isNullOrBlank()) "generate" else "result"
+            } else {
+                null
+            },
+            prompt = prompt,
+            template = template,
+            mediaCount = mediaCount,
+            visualProgressStartedAtMillis = visualProgressStartedAtMillis.ifPositiveOrNow()
+        )
+    }
+
+    private fun String.isActiveStatus(): Boolean {
+        return this != "idle" && this != "done" && this != "failed"
+    }
+
+    private fun PendingGenerationRequest.uploadedProgress(): Int {
+        if (media.isEmpty()) return 0
+        return ((media.count { !it.uploadedFileId.isNullOrBlank() }.toFloat() / media.size.toFloat()) * 20f)
+            .toInt()
+            .coerceIn(0, 20)
     }
 
     private fun Long.ifPositiveOrNow(): Long {
         return if (this > 0L) this else System.currentTimeMillis()
-    }
-
-    private inline fun <T> MutableStateFlow<T>.updateAndGet(transform: (T) -> T): T {
-        val next = transform(value)
-        value = next
-        return next
     }
 }
