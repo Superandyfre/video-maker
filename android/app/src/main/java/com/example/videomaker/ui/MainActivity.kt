@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -100,7 +99,7 @@ fun VideoMakerApp() {
                             durationMillis = PageTransitionDurationMillis,
                             easing = LinearEasing
                         )
-                    ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+                    )
                 },
                 exitTransition = {
                     slideOutHorizontally(
@@ -118,7 +117,7 @@ fun VideoMakerApp() {
                             durationMillis = PageTransitionDurationMillis,
                             easing = LinearEasing
                         )
-                    ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+                    )
                 },
                 popExitTransition = {
                     slideOutHorizontally(
