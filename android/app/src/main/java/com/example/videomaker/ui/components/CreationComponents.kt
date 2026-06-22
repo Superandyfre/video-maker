@@ -5,7 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,14 +42,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -76,24 +70,20 @@ fun PromptComposer(
     val isDark = colors.background.luminance() < 0.5f
     val haptic = LocalHapticFeedback.current
     val composerShape = RoundedCornerShape(42.dp)
-    val composerColor = if (isDark) {
-        colors.surface.copy(alpha = 0.92f)
+    val composerColor = colors.surface
+    val composerBorderColor = if (isDark) {
+        Color.White.copy(alpha = 0.10f)
     } else {
-        colors.surface.copy(alpha = 0.94f)
+        colors.outline.copy(alpha = 0.12f)
     }
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = if (isDark) Color.White.copy(alpha = 0.10f) else colors.outline.copy(alpha = 0.14f),
-                shape = composerShape
-            ),
+        modifier = modifier.fillMaxWidth(),
         shape = composerShape,
         color = composerColor,
+        border = BorderStroke(1.dp, composerBorderColor),
         tonalElevation = 0.dp,
-        shadowElevation = if (isDark) 0.dp else 8.dp
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
@@ -136,12 +126,15 @@ fun PromptComposer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ColorfulAddMediaButton(
+                    IconActionButton(
+                        icon = Icons.Rounded.Add,
                         contentDescription = "添加图片或视频素材",
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onAddMedia()
-                        }
+                        },
+                        containerColor = colors.primaryContainer.copy(alpha = if (isDark) 0.82f else 0.76f),
+                        contentColor = colors.onPrimaryContainer
                     )
                     IconActionButton(
                         icon = Icons.Rounded.Tune,
@@ -174,84 +167,6 @@ fun PromptComposer(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ColorfulAddMediaButton(
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(999.dp)
-
-    Box(
-        modifier = modifier
-            .size(52.dp)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val inset = 6.dp.toPx()
-            val diameter = size.minDimension - inset * 2f
-            val arcBounds = Size(diameter, diameter)
-            val arcTopLeft = Offset(
-                x = (size.width - diameter) / 2f,
-                y = (size.height - diameter) / 2f
-            )
-            val arcBrush = Brush.sweepGradient(
-                colors = listOf(
-                    Color(0xFF5EA8FF),
-                    Color(0xFF7D63FF),
-                    Color(0xFFFF5B91),
-                    Color(0xFFFFD85B),
-                    Color(0xFF3CE59A),
-                    Color(0xFF5EA8FF)
-                ),
-                center = center
-            )
-
-            drawArc(
-                brush = arcBrush,
-                startAngle = 226f,
-                sweepAngle = -218f,
-                useCenter = false,
-                topLeft = arcTopLeft,
-                size = arcBounds,
-                alpha = 0.22f,
-                style = Stroke(width = 13.dp.toPx(), cap = StrokeCap.Round)
-            )
-            drawArc(
-                brush = arcBrush,
-                startAngle = 226f,
-                sweepAngle = -218f,
-                useCenter = false,
-                topLeft = arcTopLeft,
-                size = arcBounds,
-                alpha = 0.95f,
-                style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(45.dp)
-                .shadow(elevation = 8.dp, shape = shape, clip = false)
-                .clip(shape)
-                .background(Color.White)
-                .border(
-                    width = 1.dp,
-                    color = Color(0xFFE9EDF4),
-                    shape = shape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = contentDescription,
-                tint = Color(0xFF15171D),
-                modifier = Modifier.size(27.dp)
-            )
         }
     }
 }

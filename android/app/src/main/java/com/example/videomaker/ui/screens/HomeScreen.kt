@@ -9,6 +9,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -291,18 +296,10 @@ private fun ActiveGenerationButton(
         visualProgressKey = visualProgressKey
     )
     val progressLabel = "${visualProgress.roundToInt().coerceIn(0, 100)}%"
-    val buttonColors = listOf(
-        Color(0xFF2F7CF6),
-        Color(0xFF7C4DFF),
-        Color(0xFFFF4FA3),
-        Color(0xFFFFB24C),
-        Color(0xFF2F7CF6)
-    )
 
     Box(
         modifier = Modifier
-            .size(46.dp)
-            .clip(shape)
+            .size(52.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -311,37 +308,66 @@ private fun ActiveGenerationButton(
                 .fillMaxSize()
                 .rotate(rotation)
         ) {
-            drawCircle(
-                brush = Brush.sweepGradient(buttonColors),
-                radius = size.minDimension / 2f
+            val inset = 6.dp.toPx()
+            val diameter = size.minDimension - inset * 2f
+            val arcBounds = Size(diameter, diameter)
+            val arcTopLeft = Offset(
+                x = (size.width - diameter) / 2f,
+                y = (size.height - diameter) / 2f
+            )
+            val arcBrush = Brush.sweepGradient(
+                colors = listOf(
+                    Color(0xFF5EA8FF),
+                    Color(0xFF7D63FF),
+                    Color(0xFFFF5B91),
+                    Color(0xFFFFD85B),
+                    Color(0xFF3CE59A),
+                    Color(0xFF5EA8FF)
+                ),
+                center = center
+            )
+
+            drawArc(
+                brush = arcBrush,
+                startAngle = 226f,
+                sweepAngle = -218f,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcBounds,
+                alpha = 0.22f,
+                style = Stroke(width = 13.dp.toPx(), cap = StrokeCap.Round)
+            )
+            drawArc(
+                brush = arcBrush,
+                startAngle = 226f,
+                sweepAngle = -218f,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcBounds,
+                alpha = 0.95f,
+                style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round)
             )
         }
-        Canvas(
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp)
+                .size(45.dp)
+                .shadow(elevation = 8.dp, shape = shape, clip = false)
+                .clip(shape)
+                .background(Color.White)
+                .border(
+                    width = 1.dp,
+                    color = Color(0xFFE9EDF4),
+                    shape = shape
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            val strokeWidth = 3.dp.toPx()
-            drawArc(
-                color = Color.White.copy(alpha = 0.28f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-            )
-            drawArc(
-                color = Color.White,
-                startAngle = -90f,
-                sweepAngle = 360f * (visualProgress.coerceIn(0f, 100f) / 100f),
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            Text(
+                text = progressLabel,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFF15171D),
+                maxLines = 1
             )
         }
-        Text(
-            text = progressLabel,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = Color.White
-        )
     }
 }
 
