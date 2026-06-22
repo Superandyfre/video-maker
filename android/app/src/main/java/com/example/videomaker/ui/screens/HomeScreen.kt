@@ -157,7 +157,6 @@ fun HomeScreen(
                     createVideoViewModel.buildGenerationInput()?.let(onGenerate)
                 }
             )
-            settingsState.message?.let { InfoCard(it) }
             settingsState.error?.let { ErrorCard(it) }
         }
     }

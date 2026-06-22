@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,45 +68,51 @@ fun GenerationLiveStatus(
         color = colors.surface.copy(alpha = 0.94f),
         tonalElevation = 0.dp
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(colors.primaryContainer.copy(alpha = 0.66f + pulse * 0.12f))
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+        BoxWithConstraints {
+            val showStatusPill = maxWidth >= 600.dp
+
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                WaveBars(wave = wave)
+                if (showStatusPill) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(colors.primaryContainer.copy(alpha = 0.66f + pulse * 0.12f))
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        WaveBars(wave = wave)
+                        Text(
+                            text = phaseLabel(status = status, phase = phase),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.onPrimaryContainer
+                        )
+                    }
+                }
                 Text(
-                    text = phaseLabel(status = status, phase = phase),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.onPrimaryContainer
+                    text = "${progress.coerceIn(0, 100)}%",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = colors.onSurface
+                )
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0, 100) / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    color = colors.primary,
+                    trackColor = colors.primaryContainer.copy(alpha = 0.42f)
+                )
+                Text(
+                    text = message.ifBlank { "正在准备生成任务" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.onSurfaceVariant
                 )
             }
-            Text(
-                text = "${progress.coerceIn(0, 100)}%",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.onSurface
-            )
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0, 100) / 100f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-                color = colors.primary,
-                trackColor = colors.primaryContainer.copy(alpha = 0.42f)
-            )
-            Text(
-                text = message.ifBlank { "正在准备生成任务" },
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.onSurfaceVariant
-            )
         }
     }
 }

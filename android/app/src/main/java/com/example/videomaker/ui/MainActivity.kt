@@ -4,6 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +32,8 @@ import com.example.videomaker.viewmodel.CreateVideoViewModel
 import com.example.videomaker.viewmodel.GenerateViewModel
 import com.example.videomaker.viewmodel.HistoryViewModel
 import com.example.videomaker.viewmodel.SettingsViewModel
+
+private const val PageTransitionDurationMillis = 280
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,8 +74,35 @@ fun VideoMakerApp() {
         else -> systemDark
     }
 
-    VideoMakerTheme(darkTheme = darkTheme) {
-        NavHost(navController = navController, startDestination = "home") {
+    VideoMakerTheme(darkTheme = darkTheme, dynamicColor = false) {
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(PageTransitionDurationMillis)
+                ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(PageTransitionDurationMillis)
+                ) + fadeOut(animationSpec = tween(PageTransitionDurationMillis / 2))
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(PageTransitionDurationMillis)
+                ) + fadeIn(animationSpec = tween(PageTransitionDurationMillis / 2))
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(PageTransitionDurationMillis)
+                ) + fadeOut(animationSpec = tween(PageTransitionDurationMillis / 2))
+            }
+        ) {
             composable("home") {
                 HomeScreen(
                     settingsViewModel = settingsViewModel,

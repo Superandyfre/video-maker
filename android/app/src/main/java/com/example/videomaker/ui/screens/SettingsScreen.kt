@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -156,22 +157,30 @@ fun SettingsScreen(
                 SoftSurfaceCard(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
                 ) {
-                    StatusPill(
-                        text = health.status,
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.84f),
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    androidx.compose.material3.Text(
-                        text = "版本 ${health.version}",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                    androidx.compose.material3.Text(
-                        text = "FFmpeg：${health.ffmpegAvailable}\nFFprobe：${health.ffprobeAvailable}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                    BoxWithConstraints {
+                        val showStatusPill = maxWidth >= 600.dp
+
+                        Column {
+                            if (showStatusPill) {
+                                StatusPill(
+                                    text = health.status,
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.84f),
+                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                            androidx.compose.material3.Text(
+                                text = "版本 ${health.version}",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(top = if (showStatusPill) 12.dp else 0.dp)
+                            )
+                            androidx.compose.material3.Text(
+                                text = "FFmpeg：${health.ffmpegAvailable}\nFFprobe：${health.ffprobeAvailable}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
